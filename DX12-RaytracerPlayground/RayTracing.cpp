@@ -301,7 +301,9 @@ void RayTracing::CreateShaderTables()
 {
 	// Don't bother if DXR isn't available
 	if (dxrResourcesInitialized || !dxrAvailable)
+	{
 		return;
+	}
 
 	// How many of each type of shader?
 	UINT64 rayGenCount = 1;
@@ -416,6 +418,13 @@ void RayTracing::CreateRaytracingOutputUAV(unsigned int width, unsigned int heig
 		D3D12_RESOURCE_STATE_COMMON,
 		0,
 		IID_PPV_ARGS(RaytracingOutput.GetAddressOf()));
+	DXRDevice->CreateCommittedResource(
+		&heapDesc,
+		D3D12_HEAP_FLAG_NONE,
+		&desc,
+		D3D12_RESOURCE_STATE_COMMON,
+		0,
+		IID_PPV_ARGS(DenoisingOutput.GetAddressOf()));
 
 	// Do we have a UAV alrady?
 	if (!RaytracingOutputUAV_GPU.ptr)
@@ -424,6 +433,13 @@ void RayTracing::CreateRaytracingOutputUAV(unsigned int width, unsigned int heig
 		Graphics::ReserveDescriptorHeapSlot(
 			&RaytracingOutputUAV_CPU,
 			&RaytracingOutputUAV_GPU);
+	}
+
+	if (!DenoisingOutputUAV_GPU.ptr)
+	{
+		Graphics::ReserveDescriptorHeapSlot(
+			&DenoisingOutputUAV_CPU,
+			&DenoisingOutputUAV_GPU);
 	}
 
 	// Set up the UAV
@@ -435,6 +451,11 @@ void RayTracing::CreateRaytracingOutputUAV(unsigned int width, unsigned int heig
 		0,
 		&uavDesc,
 		RaytracingOutputUAV_CPU);
+	DXRDevice->CreateUnorderedAccessView(
+		DenoisingOutput.Get(),
+		0,
+		&uavDesc,
+		DenoisingOutputUAV_CPU);
 }
 
 // --------------------------------------------------------
@@ -808,12 +829,77 @@ void RayTracing::Raytrace(
 		DXRCommandList->ResourceBarrier(1, &outputBarriers[1]);
 
 		// Copy the raytracing output into the back buffer
-		DXRCommandList->CopyResource(currentBackBuffer.Get(), RaytracingOutput.Get());
+		//DXRCommandList->CopyResource(currentBackBuffer.Get(), RaytracingOutput.Get());
+		// --------------------------------------------------------------------------------------------------
+		struct DenoiseData
+		{
+			unsigned int InputIndex;
+			unsigned int OutputIndex;
+		};
+		// Transition raytracing output to SRV for compute
+		D3D12_RESOURCE_BARRIER computeBarriers[2] = {};
 
-		// Back buffer back to PRESENT
+		// Raytraced output: UAV -> NON_PIXEL_SHADER_RESOURCE
+		computeBarriers[0].Transition.pResource = RaytracingOutput.Get();
+		computeBarriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+		computeBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+		computeBarriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+		// Denoised output: whatever -> UAV
+		computeBarriers[1].Transition.pResource = DenoisingOutput.Get();
+		computeBarriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE; // or COMMON
+		computeBarriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+		computeBarriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+		DXRCommandList->ResourceBarrier(2, computeBarriers);
+		DenoiseData data = {};
+		data.InputIndex = Graphics::GetDescriptorIndex(RaytracingOutputUAV_GPU);
+		data.OutputIndex = Graphics::GetDescriptorIndex(DenoisingOutputUAV_GPU);
+
+		DXRCommandList->SetComputeRoot32BitConstants(
+			0,
+			sizeof(DenoiseData) / sizeof(unsigned int),
+			&data,
+			0);
+
+		// Dispatch
+		UINT w = Window::GetWidth();
+		UINT h = Window::GetHeight();
+
+		DXRCommandList->Dispatch(
+			(w + 7) / 8,
+			(h + 7) / 8,
+			1); 
+		D3D12_RESOURCE_BARRIER uavBarrier = {};
+		uavBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+		uavBarrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
+		uavBarrier.UAV.pResource = DenoisingOutput.Get();
+		DXRCommandList->ResourceBarrier(1, &uavBarrier);
+
+		// Transition denoised output to COPY SOURCE
+		D3D12_RESOURCE_BARRIER finalBarriers[2] = {};
+
+		// Denoised output -> COPY_SOURCE
+		finalBarriers[0].Transition.pResource = DenoisingOutput.Get();
+		finalBarriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+		finalBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
+		finalBarriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+		// Back buffer already COPY_DEST from earlier
+		DXRCommandList->ResourceBarrier(1, &finalBarriers[0]);
+
+		// Copy denoised image
+		DXRCommandList->CopyResource(currentBackBuffer.Get(), DenoisingOutput.Get());
+
 		outputBarriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
 		outputBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
 		DXRCommandList->ResourceBarrier(1, &outputBarriers[0]);
+		// --------------------------------------------------------------------------------------------------
+
+		// Back buffer back to PRESENT
+		/*outputBarriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+		outputBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+		DXRCommandList->ResourceBarrier(1, &outputBarriers[0]);*/
 	}
 
 	// Assuming command list will be executed elsewhere
