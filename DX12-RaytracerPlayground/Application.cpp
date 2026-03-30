@@ -24,7 +24,6 @@ Application::Application()
 	Interface::Initialize();
 
 	m_pCamera = std::make_shared<Camera>(Window::GetAspectRatio(), XMFLOAT3(0.0f, 2.0f, -10.0f), 45.0f);
-
 	m_uCubemapIndex = Graphics::LoadCubeMap(
 		FromExeDir(L"../../../Cubemap/right.png").c_str(),
 		FromExeDir(L"../../../Cubemap/left.png").c_str(),
@@ -33,29 +32,20 @@ Application::Application()
 		FromExeDir(L"../../../Cubemap/front.png").c_str(),
 		FromExeDir(L"../../../Cubemap/back.png").c_str());
 
+	// Loading in the models.
 	std::shared_ptr<Mesh> cube = std::make_shared<Mesh>(FromExeDir("../../../Models/cube.graphics_obj").c_str());
 	std::shared_ptr<Mesh> torus = std::make_shared<Mesh>(FromExeDir("../../../Models/torus.graphics_obj").c_str());
 	std::shared_ptr<Mesh> sphere = std::make_shared<Mesh>(FromExeDir("../../../Models/sphere.graphics_obj").c_str());
 
-	// Creating a single test texture set.
+	// Loading in a texture and creating an empty texture.
 	TextureSet emptyTexture{};
-	std::shared_ptr<Material> pFloorMat = std::make_shared<Material>(
-		emptyPso,
-		emptyTexture,
-		XMFLOAT3(0.5f, 0.5f, 0.5f),
-		XMFLOAT2(1.0f, 1.0f),
-		XMFLOAT2(0.0f, 0.0f),
-		0.0f, 1.0f);
-	m_pFloor = std::make_shared<Entity>(cube, pFloorMat);
-	m_pFloor->GetTransform().Scale(20.0f, 10.0f, 30.0f);
-	m_pFloor->GetTransform().MoveAbsolute(0.0f, -11.0f, 0.0f);
-	m_lEntities.push_back(m_pFloor);
-
 	TextureSet cobblestone{};
 	cobblestone.AlbedoIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/cobblestone_albedo.png").c_str());
 	cobblestone.NormalIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/cobblestone_normals.png").c_str());
 	cobblestone.MetallicIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/cobblestone_metal.png").c_str());
 	cobblestone.RoughnessIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/cobblestone_roughness.png").c_str());
+	
+	// Creating a material with the PBR texture.
 	std::shared_ptr<Material> pCobblestoneMat = std::make_shared<Material>(
 		emptyPso,
 		cobblestone,
@@ -65,6 +55,16 @@ Application::Application()
 		1.0f,
 		0.0f);
 
+	// Creating a material for the floor.
+	std::shared_ptr<Material> pFloorMat = std::make_shared<Material>(
+		emptyPso,
+		emptyTexture,
+		XMFLOAT3(0.5f, 0.5f, 0.5f),
+		XMFLOAT2(1.0f, 1.0f),
+		XMFLOAT2(0.0f, 0.0f),
+		0.0f, 1.0f);
+
+	// Creating a basic mirror material.
 	std::shared_ptr<Material> pMirrorMat = std::make_shared<Material>(
 		emptyPso,
 		emptyTexture,
@@ -73,13 +73,20 @@ Application::Application()
 		XMFLOAT2(0.0f, 0.0f),
 		0.2f, 1.0f);
 
+	// Setting up the floor in the scene.
+	m_pFloor = std::make_shared<Entity>(cube, pFloorMat);
+	m_pFloor->GetTransform().Scale(20.0f, 10.0f, 30.0f);
+	m_pFloor->GetTransform().MoveAbsolute(0.0f, -11.0f, 0.0f);
+	m_lEntities.push_back(m_pFloor);
+
+	// Setting up the floating Torus.
 	m_pTorus = std::make_shared<Entity>(torus, pMirrorMat);
 	m_pTorus->GetTransform().Scale(2.0f, 2.0f, 2.0f);
 	m_pTorus->GetTransform().MoveAbsolute(0.0f, 4.0f, 0.0f);
 	m_lEntities.push_back(m_pTorus);
 
-	int maxEntities = 15;
-	for (int i = 0; i < maxEntities; i++)
+	const int MaxEntities = 15;
+	for (int i = 0; i < MaxEntities; i++)
 	{
 		float rough = 1 - i % 2;
 		float metal = (float)rand() / RAND_MAX;
@@ -174,9 +181,14 @@ void Application::Draw(float a_fDeltaTime, float a_fTotalTime)
 	Microsoft::WRL::ComPtr<ID3D12Resource> currentBackBuffer =
 		Graphics::BackBuffers[Graphics::SwapChainIndex()];
 
+	// Creating the TLAS for raytracing and dispatching rays.
 	RayTracing::CreateTopLevelAccelerationStructureForScene(m_lEntities);
 	RayTracing::Raytrace(m_pCamera, currentBackBuffer, m_uCubemapIndex);
+
+	// Rendering the interface for the application.
 	Interface::Render();
+
+	// Closing the command list and finishing this draw call.
 	Graphics::CloseAndExecuteCommandList();
 
 	// Present the current back buffer and increment to the next.
