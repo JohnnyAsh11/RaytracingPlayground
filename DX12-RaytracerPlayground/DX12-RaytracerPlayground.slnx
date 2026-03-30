@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="DX12-RaytracerPlayground.vcxproj" />
+  <Project Path="DX12-RaytracerPlayground.vcxproj" Id="e42665d1-99b2-4493-8740-d969e78348c9" />
 </Solution>

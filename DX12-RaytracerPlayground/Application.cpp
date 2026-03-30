@@ -1,48 +1,16 @@
 #include "Application.h"
 #include "Graphics.h"
-#include "Vertex.h"
 #include "Input.h"
 #include "Window.h"
-#include "BufferStructs.h"
 #include "RayTracing.h"
+#include "FileHelper.h"
 
 #include <DirectXMath.h>
 
-// Needed for a helper function to load pre-compiled shader files
 #pragma comment(lib, "d3dcompiler.lib")
-#include <d3dcompiler.h>
 
 // For the DirectX Math library
 using namespace DirectX;
-
-std::wstring NarrowToWide(const std::string& str)
-{
-	int size = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.length(), 0, 0);
-	std::wstring result(size, 0);
-	MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &result[0], size);
-	return result;
-}
-std::string GetExePath()
-{
-	std::string path = ".\\";
-	char currentDir[1024] = {};
-	GetModuleFileNameA(0, currentDir, 1024);
-	char* lastSlash = strrchr(currentDir, '\\');
-	if (lastSlash)
-	{
-		*lastSlash = 0;
-		path = currentDir;
-	}
-	return path;
-}
-std::wstring FixPath(const std::wstring& relativeFilePath)
-{
-	return NarrowToWide(GetExePath()) + L"\\" + relativeFilePath;
-}
-std::string FixPath(const std::string& relativeFilePath)
-{
-	return GetExePath() + "\\" + relativeFilePath;
-}
 
 Application::Application()
 {
@@ -51,13 +19,13 @@ Application::Application()
 	RayTracing::Initialize(
 		Window::GetWidth(),
 		Window::GetHeight(),
-		FixPath(L"Raytracing.cso"));
+		FromExeDir(L"Raytracing.cso"));
 
 	m_pCamera = std::make_shared<Camera>(Window::GetAspectRatio(), XMFLOAT3(0.0f, 2.0f, -10.0f), 45.0f);
 
-	std::shared_ptr<Mesh> cube = std::make_shared<Mesh>(FixPath("../../../Models/cube.graphics_obj").c_str());
-	std::shared_ptr<Mesh> torus = std::make_shared<Mesh>(FixPath("../../../Models/torus.graphics_obj").c_str());
-	std::shared_ptr<Mesh> sphere = std::make_shared<Mesh>(FixPath("../../../Models/sphere.graphics_obj").c_str());
+	std::shared_ptr<Mesh> cube = std::make_shared<Mesh>(FromExeDir("../../../Models/cube.graphics_obj").c_str());
+	std::shared_ptr<Mesh> torus = std::make_shared<Mesh>(FromExeDir("../../../Models/torus.graphics_obj").c_str());
+	std::shared_ptr<Mesh> sphere = std::make_shared<Mesh>(FromExeDir("../../../Models/sphere.graphics_obj").c_str());
 
 	// Creating a single test texture set.
 	TextureSet emptyTexture{};
@@ -74,10 +42,10 @@ Application::Application()
 	m_lEntities.push_back(m_pFloor);
 
 	TextureSet cobblestone{};
-	cobblestone.AlbedoIndex = Graphics::LoadTexture(FixPath(L"../../../Textures/cobblestone_albedo.png").c_str());
-	cobblestone.NormalIndex = Graphics::LoadTexture(FixPath(L"../../../Textures/cobblestone_normals.png").c_str());
-	cobblestone.MetallicIndex = Graphics::LoadTexture(FixPath(L"../../../Textures/cobblestone_metal.png").c_str());
-	cobblestone.RoughnessIndex = Graphics::LoadTexture(FixPath(L"../../../Textures/cobblestone_roughness.png").c_str());
+	cobblestone.AlbedoIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/cobblestone_albedo.png").c_str());
+	cobblestone.NormalIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/cobblestone_normals.png").c_str());
+	cobblestone.MetallicIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/cobblestone_metal.png").c_str());
+	cobblestone.RoughnessIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/cobblestone_roughness.png").c_str());
 	std::shared_ptr<Material> pCobblestoneMat = std::make_shared<Material>(
 		emptyPso,
 		cobblestone,
@@ -86,7 +54,16 @@ Application::Application()
 		XMFLOAT2(0.0f, 0.0f),
 		1.0f,
 		0.0f);
-	m_pTorus = std::make_shared<Entity>(torus, pCobblestoneMat);
+
+	std::shared_ptr<Material> pMirrorMat = std::make_shared<Material>(
+		emptyPso,
+		emptyTexture,
+		XMFLOAT3(1.0f, 1.0f, 1.0f),
+		XMFLOAT2(1.0f, 1.0f),
+		XMFLOAT2(0.0f, 0.0f),
+		0.2f, 1.0f);
+
+	m_pTorus = std::make_shared<Entity>(torus, pMirrorMat);
 	m_pTorus->GetTransform().Scale(2.0f, 2.0f, 2.0f);
 	m_pTorus->GetTransform().MoveAbsolute(0.0f, 4.0f, 0.0f);
 	m_lEntities.push_back(m_pTorus);
@@ -98,21 +75,29 @@ Application::Application()
 		float metal = (float)rand() / RAND_MAX;
 		float size = (float)rand() / RAND_MAX;
 		if (size < 0.2f) size = 0.2f;
-		if (size > 0.8f) size = 0.8f;
+		if (size > 0.8f) size = 0.6f;
 		float r = (float)rand() / RAND_MAX;
 		float g = (float)rand() / RAND_MAX;
 		float b = (float)rand() / RAND_MAX;
+		bool isTextureMat = r > 0.5f;
+		std::shared_ptr<Material> pMat;
+		if (isTextureMat)
+		{
+			pMat = pCobblestoneMat;
+		}
+		else
+		{
+			pMat = std::make_shared<Material>(
+				emptyPso,
+				emptyTexture,
+				XMFLOAT3(r, g, b),
+				XMFLOAT2(1.0f, 1.0f),
+				XMFLOAT2(0.0f, 0.0f),
+				rough,
+				metal);
+		}
 
-		std::shared_ptr<Material> pNewMat = std::make_shared<Material>(
-			emptyPso,
-			emptyTexture,
-			XMFLOAT3(r, g, b),
-			XMFLOAT2(1.0f, 1.0f),
-			XMFLOAT2(0.0f, 0.0f),
-			rough,
-			metal);
-
-		std::shared_ptr<Entity> newEntity = std::make_shared<Entity>(sphere, pCobblestoneMat);
+		std::shared_ptr<Entity> newEntity = std::make_shared<Entity>(sphere, pMat);
 		float radius = 5.0f;
 		float theta = ((float)rand() / RAND_MAX) * (2 * 3.14159265359f);
 		float x = (float)cos(theta) * radius;
