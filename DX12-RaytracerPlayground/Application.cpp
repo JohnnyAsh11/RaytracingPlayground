@@ -40,10 +40,10 @@ Application::Application()
 	// Loading in a texture and creating an empty texture.
 	TextureSet emptyTexture{};
 	TextureSet cobblestone{};
-	cobblestone.AlbedoIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/cobblestone_albedo.png").c_str());
-	cobblestone.NormalIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/cobblestone_normals.png").c_str());
-	cobblestone.MetallicIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/cobblestone_metal.png").c_str());
-	cobblestone.RoughnessIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/cobblestone_roughness.png").c_str());
+	cobblestone.AlbedoIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/rust_albedo.png").c_str());
+	cobblestone.NormalIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/rust_normals.png").c_str());
+	cobblestone.MetallicIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/rust_metal.png").c_str());
+	cobblestone.RoughnessIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/rust_roughness.png").c_str());
 	
 	// Creating a material with the PBR texture.
 	std::shared_ptr<Material> pCobblestoneMat = std::make_shared<Material>(
@@ -88,7 +88,7 @@ Application::Application()
 	const int MaxEntities = 15;
 	for (int i = 0; i < MaxEntities; i++)
 	{
-		float rough = 1 - i % 2;
+		float rough = (float)1 - i % 2;
 		float metal = (float)rand() / RAND_MAX;
 		float size = (float)rand() / RAND_MAX;
 		if (size < 0.2f) size = 0.2f;
@@ -96,7 +96,7 @@ Application::Application()
 		float r = (float)rand() / RAND_MAX;
 		float g = (float)rand() / RAND_MAX;
 		float b = (float)rand() / RAND_MAX;
-		bool isTextureMat = r > 0.5f;
+		bool isTextureMat = b > 0.5f;
 		std::shared_ptr<Material> pMat;
 		if (isTextureMat)
 		{
@@ -157,15 +157,16 @@ void Application::Update(float a_fDeltaTime, float a_fTotalTime)
 		XMFLOAT3 rotation = m_lEntities[i]->GetTransform().GetRotation();
 		XMFLOAT3 scale = m_lEntities[i]->GetTransform().GetScale();
 
-		int distance = 3.0f;
+		float distance = 3.0f;
+		float speed = 2.0f;
 		if (i % 2)
 		{
-			position.x = (float)sin((a_fTotalTime + i) / distance) * distance;
+			position.x = (float)sin((a_fTotalTime / speed + i) / distance) * distance;
 			rotation.z = -position.x / (scale.x);
 		}
 		else
 		{
-			position.z = (float)sin((a_fTotalTime + i) / distance) * distance;
+			position.z = (float)sin((a_fTotalTime / speed + i) / distance) * distance;
 			rotation.x = position.z / (scale.x);
 		}
 

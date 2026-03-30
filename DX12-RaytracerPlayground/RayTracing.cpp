@@ -468,7 +468,9 @@ MeshRayTracingData RayTracing::CreateBottomLevelAccelerationStructureForMesh(Mes
 
 	// Don't bother if DXR isn't available
 	if (!dxrAvailable)
+	{
 		return rayTracingData;
+	}
 
 	// Describe the geometry data we intend to store in this BLAS
 	D3D12_RAYTRACING_GEOMETRY_DESC geometryDesc = {};
@@ -635,7 +637,7 @@ void RayTracing::CreateTopLevelAccelerationStructureForScene(std::vector<std::sh
 	accelStructInputs.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL;
 	accelStructInputs.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
 	accelStructInputs.InstanceDescs = TLASInstanceDescBuffer[frameIndex]->GetGPUVirtualAddress();
-	accelStructInputs.NumDescs = raytracingInstanceDescs.size();
+	accelStructInputs.NumDescs = (UINT)raytracingInstanceDescs.size();
 	accelStructInputs.Flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
 
 	D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO accelStructPrebuildInfo = {};

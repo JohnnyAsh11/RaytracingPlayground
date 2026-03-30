@@ -1,7 +1,7 @@
 #ifndef __FILEHELPER_H_
 #define __FILEHELPER_H_
 
-#define MAX_PATH 512
+#define MAX_FILEPATH 512
 
 inline std::wstring ToWideChar(const std::string& str) 
 { 
@@ -11,8 +11,8 @@ inline std::wstring ToWideChar(const std::string& str)
 inline std::string GetExecutableDir()
 {
 	std::string sExePath = ".\\";
-	char dir[MAX_PATH] = {};
-	GetModuleFileNameA(NULL, dir, MAX_PATH);
+	char dir[MAX_FILEPATH] = {};
+	GetModuleFileNameA(NULL, dir, MAX_FILEPATH);
 
 	// Replacing the actual executable file name with 
 	// nothing so that the string functions as a filepath.

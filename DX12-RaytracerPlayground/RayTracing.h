@@ -44,6 +44,8 @@ namespace RayTracing
 	inline D3D12_CPU_DESCRIPTOR_HANDLE RaytracingOutputUAV_CPU;
 	inline D3D12_GPU_DESCRIPTOR_HANDLE RaytracingOutputUAV_GPU;
 
+	//inline Microsoft::WRL::ComPtr<ID3D12Resource> DenoisingOutput;
+
 	// Buffer for bindless per-entity data
 	inline Microsoft::WRL::ComPtr<ID3D12Resource> EntityDataStructuredBuffer;
 	inline D3D12_CPU_DESCRIPTOR_HANDLE EntityDataUAV_CPU{};

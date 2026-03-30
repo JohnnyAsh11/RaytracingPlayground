@@ -35,11 +35,11 @@ struct RayTracingEntityData
 	// - -
 	unsigned int VertexBufferDescriptorIndex;
 	unsigned int IndexBufferDescriptorIndex;
-	unsigned int AlbedoIndex = -1;
-	unsigned int NormalIndex = -1;
+	unsigned int AlbedoIndex = (unsigned int)-1;
+	unsigned int NormalIndex = (unsigned int)-1;
 	// - -
-	unsigned int RoughnessIndex = -1;
-	unsigned int MetallicIndex = -1;
+	unsigned int RoughnessIndex = (unsigned int)-1;
+	unsigned int MetallicIndex = (unsigned int)-1;
 	float Roughness = 1.0f;
 	float Metalness = 0.0f;
 };
