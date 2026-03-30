@@ -23,7 +23,7 @@ namespace Interface
 		// - Delta Time
 		ImGuiIO& io = ImGui::GetIO();
 		io.DeltaTime = a_fDeltaTime;
-		io.DisplaySize.x = (float)Window::GetWidth();
+		io.DisplaySize.x = (float)Window::GetWidth();	
 		io.DisplaySize.y = (float)Window::GetHeight();
 
 		ImGui_ImplDX12_NewFrame();

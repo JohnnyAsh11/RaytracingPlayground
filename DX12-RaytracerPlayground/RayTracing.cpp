@@ -734,7 +734,7 @@ void RayTracing::Raytrace(
 	// Grab and fill a constant buffer
 	RayTracingSceneData sceneData = {};
 	sceneData.RecursionDepth = 10;
-	sceneData.RaysPerPixel = 25;
+	sceneData.RaysPerPixel = 15;
 	sceneData.CameraPosition = camera->GetTransform().GetPosition();
 
 	DirectX::XMFLOAT4X4 view = camera->GetView();

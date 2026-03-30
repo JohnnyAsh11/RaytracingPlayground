@@ -62,7 +62,7 @@ Application::Application()
 		XMFLOAT3(0.5f, 0.5f, 0.5f),
 		XMFLOAT2(1.0f, 1.0f),
 		XMFLOAT2(0.0f, 0.0f),
-		0.0f, 1.0f);
+		1.0f, 0.0f);
 
 	// Creating a basic mirror material.
 	std::shared_ptr<Material> pMirrorMat = std::make_shared<Material>(
@@ -154,22 +154,23 @@ void Application::Update(float a_fDeltaTime, float a_fTotalTime)
 	for (int i = 2; i < m_lEntities.size(); i++)
 	{
 		XMFLOAT3 position = m_lEntities[i]->GetTransform().GetPosition();
-		XMFLOAT3 rot = m_lEntities[i]->GetTransform().GetRotation();
-		XMFLOAT3 sc = m_lEntities[i]->GetTransform().GetScale();
+		XMFLOAT3 rotation = m_lEntities[i]->GetTransform().GetRotation();
+		XMFLOAT3 scale = m_lEntities[i]->GetTransform().GetScale();
 
+		int distance = 3.0f;
 		if (i % 2)
 		{
-			position.x = (float)sin((a_fTotalTime + i) / 4.0f) * 4.0f;
-			rot.z = -position.x / (sc.x);
+			position.x = (float)sin((a_fTotalTime + i) / distance) * distance;
+			rotation.z = -position.x / (scale.x);
 		}
 		else
 		{
-			position.z = (float)sin((a_fTotalTime + i) / 4.0f) * 4.0f;
-			rot.x = position.z / (sc.x);
+			position.z = (float)sin((a_fTotalTime + i) / distance) * distance;
+			rotation.x = position.z / (scale.x);
 		}
 
 		m_lEntities[i]->GetTransform().SetPosition(position);
-		m_lEntities[i]->GetTransform().SetRotation(rot);
+		m_lEntities[i]->GetTransform().SetRotation(rotation);
 	}
 
 	// Update the camera.
