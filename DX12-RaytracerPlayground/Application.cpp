@@ -1,7 +1,6 @@
 #include "Application.h"
-#include "Graphics.h"
-#include "Input.h"
-#include "Window.h"
+#include "Interface.h"
+
 #include "RayTracing.h"
 #include "FileHelper.h"
 
@@ -11,6 +10,7 @@
 
 // For the DirectX Math library
 using namespace DirectX;
+void BuildImGui();
 
 Application::Application()
 {
@@ -20,6 +20,8 @@ Application::Application()
 		Window::GetWidth(),
 		Window::GetHeight(),
 		FromExeDir(L"Raytracing.cso"));
+	// Initialize ImGui.
+	Interface::Initialize();
 
 	m_pCamera = std::make_shared<Camera>(Window::GetAspectRatio(), XMFLOAT3(0.0f, 2.0f, -10.0f), 45.0f);
 
@@ -129,6 +131,7 @@ Application::Application()
 Application::~Application()
 {
 	Graphics::WaitForGPU();
+	Interface::Shutdown();
 }
 
 void Application::Update(float a_fDeltaTime, float a_fTotalTime)
@@ -138,6 +141,7 @@ void Application::Update(float a_fDeltaTime, float a_fTotalTime)
 	{
 		Window::Shutdown();
 	}
+	Interface::SetFrame(BuildImGui, a_fDeltaTime);
 
 	m_pTorus->GetTransform().Rotate(a_fDeltaTime, 0.0f, 0.0f);
 	for (int i = 2; i < m_lEntities.size(); i++)
@@ -172,6 +176,7 @@ void Application::Draw(float a_fDeltaTime, float a_fTotalTime)
 
 	RayTracing::CreateTopLevelAccelerationStructureForScene(m_lEntities);
 	RayTracing::Raytrace(m_pCamera, currentBackBuffer, m_uCubemapIndex);
+	Interface::Render();
 	Graphics::CloseAndExecuteCommandList();
 
 	// Present the current back buffer and increment to the next.
@@ -206,4 +211,11 @@ void Application::OnResize()
 	m_pCamera->UpdateProjection(Window::GetAspectRatio());
 	// Resize raytracing output texture.
 	RayTracing::ResizeOutputUAV(Window::GetWidth(), Window::GetHeight());
+}
+
+void BuildImGui()
+{
+	ImGui::Begin("Debug");
+	ImGui::Text("Frame rate: %f fps", ImGui::GetIO().Framerate);
+	ImGui::End();
 }
