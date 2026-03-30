@@ -1,13 +1,216 @@
 #include "Application.h"
+#include "Graphics.h"
+#include "Vertex.h"
+#include "Input.h"
+#include "Window.h"
+#include "BufferStructs.h"
+#include "RayTracing.h"
 
-void Application::OnResize()
+#include <DirectXMath.h>
+
+// Needed for a helper function to load pre-compiled shader files
+#pragma comment(lib, "d3dcompiler.lib")
+#include <d3dcompiler.h>
+
+// For the DirectX Math library
+using namespace DirectX;
+
+std::wstring NarrowToWide(const std::string& str)
 {
+	int size = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.length(), 0, 0);
+	std::wstring result(size, 0);
+	MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &result[0], size);
+	return result;
+}
+std::string GetExePath()
+{
+	std::string path = ".\\";
+	char currentDir[1024] = {};
+	GetModuleFileNameA(0, currentDir, 1024);
+	char* lastSlash = strrchr(currentDir, '\\');
+	if (lastSlash)
+	{
+		*lastSlash = 0;
+		path = currentDir;
+	}
+	return path;
+}
+std::wstring FixPath(const std::wstring& relativeFilePath)
+{
+	return NarrowToWide(GetExePath()) + L"\\" + relativeFilePath;
+}
+std::string FixPath(const std::string& relativeFilePath)
+{
+	return GetExePath() + "\\" + relativeFilePath;
+}
+
+Application::Application()
+{
+	srand(time(0));
+	// Initialize raytracing
+	RayTracing::Initialize(
+		Window::GetWidth(),
+		Window::GetHeight(),
+		FixPath(L"Raytracing.cso"));
+
+	m_pCamera = std::make_shared<Camera>(Window::GetAspectRatio(), XMFLOAT3(0.0f, 2.0f, -10.0f), 45.0f);
+
+	std::shared_ptr<Mesh> cube = std::make_shared<Mesh>(FixPath("../../../Models/cube.graphics_obj").c_str());
+	std::shared_ptr<Mesh> torus = std::make_shared<Mesh>(FixPath("../../../Models/torus.graphics_obj").c_str());
+	std::shared_ptr<Mesh> sphere = std::make_shared<Mesh>(FixPath("../../../Models/sphere.graphics_obj").c_str());
+
+	// Creating a single test texture set.
+	TextureSet emptyTexture{};
+	std::shared_ptr<Material> pFloorMat = std::make_shared<Material>(
+		emptyPso,
+		emptyTexture,
+		XMFLOAT3(0.5f, 0.5f, 0.5f),
+		XMFLOAT2(1.0f, 1.0f),
+		XMFLOAT2(0.0f, 0.0f),
+		1.0f, 0.0f);
+	m_pFloor = std::make_shared<Entity>(cube, pFloorMat);
+	m_pFloor->GetTransform().Scale(20.0f, 10.0f, 30.0f);
+	m_pFloor->GetTransform().MoveAbsolute(0.0f, -11.0f, 0.0f);
+	m_lEntities.push_back(m_pFloor);
+
+	TextureSet cobblestone{};
+	cobblestone.AlbedoIndex = Graphics::LoadTexture(FixPath(L"../../../Textures/cobblestone_albedo.png").c_str());
+	cobblestone.NormalIndex = Graphics::LoadTexture(FixPath(L"../../../Textures/cobblestone_normals.png").c_str());
+	cobblestone.MetallicIndex = Graphics::LoadTexture(FixPath(L"../../../Textures/cobblestone_metal.png").c_str());
+	cobblestone.RoughnessIndex = Graphics::LoadTexture(FixPath(L"../../../Textures/cobblestone_roughness.png").c_str());
+	std::shared_ptr<Material> pCobblestoneMat = std::make_shared<Material>(
+		emptyPso,
+		cobblestone,
+		XMFLOAT3(1.0f, 1.0f, 1.0f),
+		XMFLOAT2(1.0f, 1.0f),
+		XMFLOAT2(0.0f, 0.0f),
+		1.0f,
+		0.0f);
+	m_pTorus = std::make_shared<Entity>(torus, pCobblestoneMat);
+	m_pTorus->GetTransform().Scale(2.0f, 2.0f, 2.0f);
+	m_pTorus->GetTransform().MoveAbsolute(0.0f, 4.0f, 0.0f);
+	m_lEntities.push_back(m_pTorus);
+
+	int maxEntities = 15;
+	for (int i = 0; i < maxEntities; i++)
+	{
+		float rough = 1 - i % 2;
+		float metal = (float)rand() / RAND_MAX;
+		float size = (float)rand() / RAND_MAX;
+		if (size < 0.2f) size = 0.2f;
+		if (size > 0.8f) size = 0.8f;
+		float r = (float)rand() / RAND_MAX;
+		float g = (float)rand() / RAND_MAX;
+		float b = (float)rand() / RAND_MAX;
+
+		std::shared_ptr<Material> pNewMat = std::make_shared<Material>(
+			emptyPso,
+			emptyTexture,
+			XMFLOAT3(r, g, b),
+			XMFLOAT2(1.0f, 1.0f),
+			XMFLOAT2(0.0f, 0.0f),
+			rough,
+			metal);
+
+		std::shared_ptr<Entity> newEntity = std::make_shared<Entity>(sphere, pCobblestoneMat);
+		float radius = 5.0f;
+		float theta = ((float)rand() / RAND_MAX) * (2 * 3.14159265359f);
+		float x = (float)cos(theta) * radius;
+		float z = (float)sin(theta) * radius;
+		newEntity->GetTransform().MoveAbsolute(x, (size - 1.0f), z);
+		newEntity->GetTransform().Scale(size, size, size);
+
+		m_lEntities.push_back(newEntity);
+	}
+
+	RayTracing::CreateEntityDataBuffer(m_lEntities);
+	// Once we have all of the BLASs ready, we can make a TLAS
+	RayTracing::CreateTopLevelAccelerationStructureForScene(m_lEntities);
+	// Finalize any initialization and wait for the GPU
+	// before proceeding to the game loop
+	Graphics::CloseAndExecuteCommandList();
+	Graphics::WaitForGPU();
+	Graphics::ResetAllocatorAndCommandList();
+}
+
+Application::~Application()
+{
+	Graphics::WaitForGPU();
 }
 
 void Application::Update(float a_fDeltaTime, float a_fTotalTime)
 {
+	// Example input checking: Quit if the escape key is pressed
+	if (Input::KeyDown(VK_ESCAPE))
+	{
+		Window::Shutdown();
+	}
+
+	m_pTorus->GetTransform().Rotate(a_fDeltaTime, 0.0f, 0.0f);
+	for (int i = 2; i < m_lEntities.size(); i++)
+	{
+		XMFLOAT3 position = m_lEntities[i]->GetTransform().GetPosition();
+		XMFLOAT3 rot = m_lEntities[i]->GetTransform().GetRotation();
+		XMFLOAT3 sc = m_lEntities[i]->GetTransform().GetScale();
+
+		if (i % 2)
+		{
+			position.x = (float)sin((a_fTotalTime + i) / 4.0f) * 4.0f;
+			rot.z = -position.x / (sc.x);
+		}
+		else
+		{
+			position.z = (float)sin((a_fTotalTime + i) / 4.0f) * 4.0f;
+			rot.x = position.z / (sc.x);
+		}
+
+		m_lEntities[i]->GetTransform().SetPosition(position);
+		m_lEntities[i]->GetTransform().SetRotation(rot);
+	}
+
+	// Update the camera.
+	m_pCamera->Update(a_fDeltaTime);
 }
 
 void Application::Draw(float a_fDeltaTime, float a_fTotalTime)
 {
+	Microsoft::WRL::ComPtr<ID3D12Resource> currentBackBuffer =
+		Graphics::BackBuffers[Graphics::SwapChainIndex()];
+
+	RayTracing::CreateTopLevelAccelerationStructureForScene(m_lEntities);
+	RayTracing::Raytrace(m_pCamera, currentBackBuffer);
+	Graphics::CloseAndExecuteCommandList();
+
+	// Present the current back buffer and increment to the next.
+	bool vsync = Graphics::VsyncState();
+	Graphics::SwapChain->Present(
+		vsync ? 1 : 0,
+		vsync ? 0 : DXGI_PRESENT_ALLOW_TEARING);
+	Graphics::AdvanceSwapChainIndex();
+	// Also reset the command list/allocator for upcoming frames.
+	Graphics::ResetAllocatorAndCommandList();
+}
+
+void Application::OnResize()
+{
+	// Setting up the viewport.
+	viewport = {};
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = (float)Window::GetWidth();
+	viewport.Height = (float)Window::GetHeight();
+	viewport.MinDepth = 0.0f;
+	viewport.MaxDepth = 1.0f;
+
+	// Not doing anything special with the scissor rect.
+	scissorRect = {};
+	scissorRect.left = 0;
+	scissorRect.top = 0;
+	scissorRect.right = Window::GetWidth();
+	scissorRect.bottom = Window::GetHeight();
+
+	// Updating the projection matrix.
+	m_pCamera->UpdateProjection(Window::GetAspectRatio());
+	// Resize raytracing output texture.
+	RayTracing::ResizeOutputUAV(Window::GetWidth(), Window::GetHeight());
 }

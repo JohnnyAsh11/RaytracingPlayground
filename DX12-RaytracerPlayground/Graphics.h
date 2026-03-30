@@ -79,7 +79,7 @@ namespace Graphics
 	/// <summary>
 	/// Resets allocator/command list for next frame.
 	/// </summary>
-	void ResetAllocatorAndCommandList(UINT a_uIndex);
+	void ResetAllocatorAndCommandList();
 
 	/// <summary>
 	/// Executes the current contents of the command list on the GPU.

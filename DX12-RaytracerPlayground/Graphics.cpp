@@ -429,10 +429,10 @@ void Graphics::WaitForGPU()
 	GpuCounter = CpuCounter;
 }
 
-void Graphics::ResetAllocatorAndCommandList(UINT a_uIndex)
+void Graphics::ResetAllocatorAndCommandList()
 {
-	CommandAllocator[a_uIndex]->Reset();
-	CommandList->Reset(CommandAllocator[a_uIndex].Get(), 0);
+	CommandAllocator[SwapChainIndex()]->Reset();
+	CommandList->Reset(CommandAllocator[SwapChainIndex()].Get(), 0);
 }
 
 void Graphics::CloseAndExecuteCommandList()

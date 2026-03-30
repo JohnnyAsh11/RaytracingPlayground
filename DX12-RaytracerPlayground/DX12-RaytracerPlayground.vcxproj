@@ -128,19 +128,40 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
+    <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Entity.cpp" />
     <ClCompile Include="Graphics.cpp" />
     <ClCompile Include="Input.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="Material.cpp" />
+    <ClCompile Include="Mesh.cpp" />
+    <ClCompile Include="RayTracing.cpp" />
+    <ClCompile Include="Transform.cpp" />
     <ClCompile Include="Window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
+    <ClInclude Include="BufferStructs.h" />
+    <ClInclude Include="Camera.h" />
+    <ClInclude Include="Entity.h" />
     <ClInclude Include="Graphics.h" />
     <ClInclude Include="Input.h" />
+    <ClInclude Include="Material.h" />
+    <ClInclude Include="Mesh.h" />
+    <ClInclude Include="RayTracing.h" />
+    <ClInclude Include="Transform.h" />
+    <ClInclude Include="Vertex.h" />
     <ClInclude Include="Window.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <None Include="Random.hlsli" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Raytracing.hlsl">
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.6</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Library</ShaderType>
+    </FxCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
