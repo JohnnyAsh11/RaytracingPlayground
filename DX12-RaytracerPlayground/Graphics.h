@@ -102,6 +102,17 @@ namespace Graphics
 	unsigned int LoadTexture(const wchar_t* file, bool generateMips = true);
 
 	/// <summary>
+	/// Loads in 6 textures to put together as a cubemap.  Returns the index of its descriptor.
+	/// </summary>
+	unsigned int LoadCubeMap(
+		const wchar_t* a_pRight, 
+		const wchar_t* a_pLeft, 
+		const wchar_t* a_pUp, 
+		const wchar_t* a_pDown, 
+		const wchar_t* a_pFront, 
+		const wchar_t* a_pBack);
+
+	/// <summary>
 	/// Fills the next available constant buffer with the passed in data, and returns a GPU descriptor handle to that buffer.
 	/// </summary>
 	D3D12_GPU_DESCRIPTOR_HANDLE IncrementCBufferGetHandle(

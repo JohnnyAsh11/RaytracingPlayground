@@ -11,25 +11,15 @@
 class Application
 {
 private:
-	// Pipeline
-	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature;
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> emptyPso;
-
-	// Geometry
-	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBuffer;
-	D3D12_VERTEX_BUFFER_VIEW vbView{};
-
-	Microsoft::WRL::ComPtr<ID3D12Resource> indexBuffer;
-	D3D12_INDEX_BUFFER_VIEW ibView{};
-
-	// Other graphics data
+	// Window resizing data.
 	D3D12_VIEWPORT viewport{};
 	D3D12_RECT scissorRect{};
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> emptyPso;
 
+	unsigned int m_uCubemapIndex;
 	std::vector<std::shared_ptr<Entity>> m_lEntities;
 	std::shared_ptr<Entity> m_pTorus;
 	std::shared_ptr<Entity> m_pFloor;
-
 	std::shared_ptr<Camera> m_pCamera;
 
 public:

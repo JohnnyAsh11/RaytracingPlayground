@@ -23,6 +23,14 @@ Application::Application()
 
 	m_pCamera = std::make_shared<Camera>(Window::GetAspectRatio(), XMFLOAT3(0.0f, 2.0f, -10.0f), 45.0f);
 
+	m_uCubemapIndex = Graphics::LoadCubeMap(
+		FromExeDir(L"../../../Cubemap/right.png").c_str(),
+		FromExeDir(L"../../../Cubemap/left.png").c_str(),
+		FromExeDir(L"../../../Cubemap/up.png").c_str(),
+		FromExeDir(L"../../../Cubemap/down.png").c_str(),
+		FromExeDir(L"../../../Cubemap/front.png").c_str(),
+		FromExeDir(L"../../../Cubemap/back.png").c_str());
+
 	std::shared_ptr<Mesh> cube = std::make_shared<Mesh>(FromExeDir("../../../Models/cube.graphics_obj").c_str());
 	std::shared_ptr<Mesh> torus = std::make_shared<Mesh>(FromExeDir("../../../Models/torus.graphics_obj").c_str());
 	std::shared_ptr<Mesh> sphere = std::make_shared<Mesh>(FromExeDir("../../../Models/sphere.graphics_obj").c_str());
@@ -35,7 +43,7 @@ Application::Application()
 		XMFLOAT3(0.5f, 0.5f, 0.5f),
 		XMFLOAT2(1.0f, 1.0f),
 		XMFLOAT2(0.0f, 0.0f),
-		1.0f, 0.0f);
+		0.0f, 1.0f);
 	m_pFloor = std::make_shared<Entity>(cube, pFloorMat);
 	m_pFloor->GetTransform().Scale(20.0f, 10.0f, 30.0f);
 	m_pFloor->GetTransform().MoveAbsolute(0.0f, -11.0f, 0.0f);
@@ -163,7 +171,7 @@ void Application::Draw(float a_fDeltaTime, float a_fTotalTime)
 		Graphics::BackBuffers[Graphics::SwapChainIndex()];
 
 	RayTracing::CreateTopLevelAccelerationStructureForScene(m_lEntities);
-	RayTracing::Raytrace(m_pCamera, currentBackBuffer);
+	RayTracing::Raytrace(m_pCamera, currentBackBuffer, m_uCubemapIndex);
 	Graphics::CloseAndExecuteCommandList();
 
 	// Present the current back buffer and increment to the next.

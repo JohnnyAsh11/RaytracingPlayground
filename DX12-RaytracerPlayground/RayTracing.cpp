@@ -705,7 +705,10 @@ void RayTracing::CreateTopLevelAccelerationStructureForScene(std::vector<std::sh
 // --------------------------------------------------------
 // Performs the actual raytracing work
 // --------------------------------------------------------
-void RayTracing::Raytrace(std::shared_ptr<Camera> camera, Microsoft::WRL::ComPtr<ID3D12Resource> currentBackBuffer)
+void RayTracing::Raytrace(
+	std::shared_ptr<Camera> camera, 
+	Microsoft::WRL::ComPtr<ID3D12Resource> currentBackBuffer,
+	unsigned int a_uCubemapIndex)
 {
 	if (!dxrResourcesInitialized || !dxrAvailable)
 		return;
@@ -759,6 +762,7 @@ void RayTracing::Raytrace(std::shared_ptr<Camera> camera, Microsoft::WRL::ComPtr
 		data.OutputUAVDescriptorIndex = Graphics::GetDescriptorIndex(RaytracingOutputUAV_GPU);
 		data.EntityDataDescriptorIndex = Graphics::GetDescriptorIndex(EntityDataUAV_GPU);
 		data.SceneTLASDescriptorIndex = Graphics::GetDescriptorIndex(TLASDescriptor_GPU);
+		data.SkyboxDescriptorIndex = a_uCubemapIndex;
 		DXRCommandList->SetComputeRoot32BitConstants(
 			0,												   // Root parameter index
 			sizeof(RayTracingDrawData) / sizeof(unsigned int), // Number of 32-bit values

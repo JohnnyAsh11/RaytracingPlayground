@@ -10,6 +10,7 @@ struct RayTracingDrawData
 	unsigned int EntityDataDescriptorIndex;
 	unsigned int SceneTLASDescriptorIndex;
 	unsigned int OutputUAVDescriptorIndex;
+	unsigned int SkyboxDescriptorIndex;
 };
 
 // Overall scene data for ray tracing (constant buffer)

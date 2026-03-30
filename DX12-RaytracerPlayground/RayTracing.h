@@ -60,7 +60,8 @@ namespace RayTracing
 
 	void Raytrace(
 		std::shared_ptr<Camera> camera, 
-		Microsoft::WRL::ComPtr<ID3D12Resource> currentBackBuffer);
+		Microsoft::WRL::ComPtr<ID3D12Resource> currentBackBuffer,
+		unsigned int a_uCubemapIndex = -1);
 
 	void CreateEntityDataBuffer(std::vector<std::shared_ptr<Entity>> scene);
 
