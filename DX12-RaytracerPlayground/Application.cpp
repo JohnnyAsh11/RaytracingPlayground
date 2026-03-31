@@ -2,11 +2,13 @@
 #include "Interface.h"
 
 #include "RayTracing.h"
+#include "BufferStructs.h"
 #include "FileHelper.h"
 
 #include <DirectXMath.h>
 
 #pragma comment(lib, "d3dcompiler.lib")
+#include <d3dcompiler.h>
 
 // For the DirectX Math library
 using namespace DirectX;
@@ -15,6 +17,56 @@ void BuildImGui();
 Application::Application()
 {
 	srand(time(0));
+
+	Microsoft::WRL::ComPtr<ID3DBlob> denoiseShaderByteCode;
+	D3DReadFileToBlob(FromExeDir(L"DenoiseCS.cso").c_str(), denoiseShaderByteCode.GetAddressOf());
+
+	// Compute RootSig/PSO creation.
+	D3D12_ROOT_PARAMETER rootParams[1];
+	rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+	rootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootParams[0].Constants.Num32BitValues = sizeof(FrameDenoiseData) / sizeof(unsigned int);
+	rootParams[0].Constants.RegisterSpace = 0;
+	rootParams[0].Constants.ShaderRegister = 0;
+
+	D3D12_STATIC_SAMPLER_DESC anisoWrap = {};
+	anisoWrap.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	anisoWrap.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	anisoWrap.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	anisoWrap.Filter = D3D12_FILTER_ANISOTROPIC;
+	anisoWrap.MaxAnisotropy = 16;
+	anisoWrap.MaxLOD = D3D12_FLOAT32_MAX;
+	anisoWrap.ShaderRegister = 0;
+	anisoWrap.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+	D3D12_STATIC_SAMPLER_DESC samplers[] = { anisoWrap };
+	ID3DBlob* serializedRootSig = 0;
+	ID3DBlob* errors = 0;
+	D3D12_ROOT_SIGNATURE_DESC rootSig = {};
+	rootSig.Flags = D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
+	rootSig.NumParameters = ARRAYSIZE(rootParams);
+	rootSig.pParameters = rootParams;
+	rootSig.NumStaticSamplers = ARRAYSIZE(samplers);
+	rootSig.pStaticSamplers = samplers;
+
+	HRESULT result = D3D12SerializeRootSignature(
+		&rootSig,
+		D3D_ROOT_SIGNATURE_VERSION_1,
+		&serializedRootSig,
+		&errors);
+	Graphics::Device->CreateRootSignature(
+		0,
+		serializedRootSig->GetBufferPointer(),
+		serializedRootSig->GetBufferSize(),
+		IID_PPV_ARGS(m_pDenoiseRootSig.GetAddressOf()));
+
+	D3D12_COMPUTE_PIPELINE_STATE_DESC computePsoDesc{};
+	computePsoDesc.CS.BytecodeLength = denoiseShaderByteCode->GetBufferSize();
+	computePsoDesc.CS.pShaderBytecode = denoiseShaderByteCode->GetBufferPointer();
+	computePsoDesc.pRootSignature = m_pDenoiseRootSig.Get();
+
+	Graphics::Device->CreateComputePipelineState(&computePsoDesc, IID_PPV_ARGS(m_pDenoisePso.GetAddressOf()));
+
 	// Initialize raytracing
 	RayTracing::Initialize(
 		Window::GetWidth(),
@@ -185,7 +237,7 @@ void Application::Draw(float a_fDeltaTime, float a_fTotalTime)
 
 	// Creating the TLAS for raytracing and dispatching rays.
 	RayTracing::CreateTopLevelAccelerationStructureForScene(m_lEntities);
-	RayTracing::Raytrace(m_pCamera, currentBackBuffer, m_uCubemapIndex);
+	RayTracing::Raytrace(m_pCamera, currentBackBuffer, m_pDenoiseRootSig, m_pDenoisePso, m_uCubemapIndex);
 
 	// Rendering the interface for the application.
 	Interface::Render();

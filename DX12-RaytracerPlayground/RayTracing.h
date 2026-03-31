@@ -1,4 +1,5 @@
-#pragma once
+#ifndef __RAYTRACING_H_
+#define __RAYTRACING_H_
 
 #include <d3d12.h>
 #include <wrl/client.h>
@@ -10,9 +11,13 @@
 #include "Camera.h"
 #include "Entity.h"
 #include "Graphics.h"
+#include "BufferStructs.h"
 
 namespace RayTracing
 {
+	inline unsigned int Width;
+	inline unsigned int Height;
+
 	// Raytracing-specific versions of base DX12 objects
 	inline Microsoft::WRL::ComPtr<ID3D12Device5> DXRDevice;
 	inline Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList4> DXRCommandList;
@@ -44,9 +49,11 @@ namespace RayTracing
 	inline D3D12_CPU_DESCRIPTOR_HANDLE RaytracingOutputUAV_CPU;
 	inline D3D12_GPU_DESCRIPTOR_HANDLE RaytracingOutputUAV_GPU;
 
-	inline Microsoft::WRL::ComPtr<ID3D12Resource> DenoisingOutput;
-	inline D3D12_CPU_DESCRIPTOR_HANDLE DenoisingOutputUAV_CPU;
-	inline D3D12_GPU_DESCRIPTOR_HANDLE DenoisingOutputUAV_GPU;
+	// Temporal Filteration Resources.
+	inline const unsigned int TemporalFilterationFrameCount = MAX_FRAME_HISTORY;
+	inline Microsoft::WRL::ComPtr<ID3D12Resource> TemporalFilterationResources[TemporalFilterationFrameCount];
+	inline D3D12_CPU_DESCRIPTOR_HANDLE FilterationHandleUAV_CPU[TemporalFilterationFrameCount];
+	inline D3D12_GPU_DESCRIPTOR_HANDLE FilterationHandleUAV_GPU[TemporalFilterationFrameCount];
 
 	// Buffer for bindless per-entity data
 	inline Microsoft::WRL::ComPtr<ID3D12Resource> EntityDataStructuredBuffer;
@@ -65,6 +72,8 @@ namespace RayTracing
 	void Raytrace(
 		std::shared_ptr<Camera> camera, 
 		Microsoft::WRL::ComPtr<ID3D12Resource> currentBackBuffer,
+		Microsoft::WRL::ComPtr<ID3D12RootSignature> m_pDenoiseRootSig,
+		Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pDenoisePso,
 		unsigned int a_uCubemapIndex = -1);
 
 	void CreateEntityDataBuffer(std::vector<std::shared_ptr<Entity>> scene);
@@ -80,3 +89,5 @@ namespace RayTracing
 	void CreateShaderTables();
 	void CreateRaytracingOutputUAV(unsigned int width, unsigned int height);
 }
+
+#endif //__RAYTRACING_H_

@@ -1,9 +1,29 @@
 #include "random.hlsli"
 
-Texture2D<float4> Input : register(t0);
-RWTexture2D<float4> Output : register(u0);
+SamplerState Sampler : register(s0);
+
+#define MAX_FRAME_HISTORY 3
+
+cbuffer TextureIndices : register(b0)
+{
+    unsigned int RaytracedFrameIndex;
+    unsigned int PreviousFrameIndices[MAX_FRAME_HISTORY];
+}
 
 [numthreads(8, 8, 1)]
-void main(uint3 threadID : SV_DispatchThreadID)
+void main(uint3 threadId : SV_DispatchThreadID)
 {
+    RWTexture2D<unorm float4> raytraceOutput = ResourceDescriptorHeap[RaytracedFrameIndex];
+    float4 currentPixel = raytraceOutput.Load(threadId);
+    
+    float4 totalPreviousFrames = float4(0.0f, 0.0f, 0.0f, 1.0f);
+    for (int i = 0; i < MAX_FRAME_HISTORY; i++)
+    {
+        RWTexture2D<unorm float4> prevFrame = ResourceDescriptorHeap[PreviousFrameIndices[i]];
+        float4 prevFramePixel = prevFrame.Load(threadId);
+        
+        totalPreviousFrames += prevFramePixel;
+    }
+    
+    raytraceOutput[threadId.xy] = currentPixel + (totalPreviousFrames / MAX_FRAME_HISTORY);
 }
