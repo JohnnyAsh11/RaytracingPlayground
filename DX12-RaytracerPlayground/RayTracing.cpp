@@ -917,7 +917,7 @@ void RayTracing::Raytrace(
 		DXRCommandList->ResourceBarrier(TemporalFilterationFrameCount + 1, finalBarriers);
 		DXRCommandList->CopyResource(currentBackBuffer.Get(), RaytracingOutput.Get());
 
-		Microsoft::WRL::ComPtr<ID3D12Resource> tempResource;
+		Microsoft::WRL::ComPtr<ID3D12Resource> tempResource[2];
 		{
 			// Default heap for output buffer
 			D3D12_HEAP_PROPERTIES heapDesc = {};
@@ -945,11 +945,73 @@ void RayTracing::Raytrace(
 				&desc,
 				D3D12_RESOURCE_STATE_COPY_DEST,
 				0,
-				IID_PPV_ARGS(tempResource.GetAddressOf()));
+				IID_PPV_ARGS(tempResource[0].GetAddressOf()));
+			DXRDevice->CreateCommittedResource(
+				&heapDesc,
+				D3D12_HEAP_FLAG_NONE,
+				&desc,
+				D3D12_RESOURCE_STATE_COPY_DEST,
+				0,
+				IID_PPV_ARGS(tempResource[1].GetAddressOf()));
 		}
-		for (int i = 0; i < TemporalFilterationFrameCount; i++)
+		for (int i = 1; i < TemporalFilterationFrameCount; i++)
 		{
-			DXRCommandList->CopyResource(tempResource.Get(), RaytracingOutput.Get());
+			DXRCommandList->CopyResource(
+				tempResource[0].Get(),
+				TemporalFilterationResources[i].Get());
+
+			D3D12_RESOURCE_BARRIER copyFrameState[3] = {};
+			{
+				finalBarriers[0].Transition.pResource = TemporalFilterationResources[i].Get();
+				finalBarriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
+				finalBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+				finalBarriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+
+				if (i < TemporalFilterationFrameCount - 1)
+				{
+					finalBarriers[1].Transition.pResource = TemporalFilterationResources[i + 1].Get();
+					finalBarriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+					finalBarriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
+					finalBarriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+				}
+
+				finalBarriers[2].Transition.pResource = tempResource[0].Get();
+				finalBarriers[2].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+				finalBarriers[2].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
+				finalBarriers[2].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			}
+			DXRCommandList->ResourceBarrier(TemporalFilterationFrameCount, finalBarriers);
+
+			D3D12_RESOURCE_BARRIER tempUpdate{};
+			tempUpdate.Transition.pResource = tempResource[1].Get();
+			tempUpdate.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+			tempUpdate.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
+			tempUpdate.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			DXRCommandList->ResourceBarrier(1, &tempUpdate);
+			if (i == 0)
+			{
+				DXRCommandList->CopyResource(
+					TemporalFilterationResources[i].Get(),
+					RaytracingOutput.Get());
+			}
+			else
+			{
+
+				DXRCommandList->CopyResource(
+					TemporalFilterationResources[i].Get(),
+					tempResource[1].Get());
+
+				tempUpdate.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
+				tempUpdate.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+				DXRCommandList->ResourceBarrier(1, &tempUpdate);
+			}
+
+			DXRCommandList->CopyResource(
+				tempResource[1].Get(),
+				tempResource[0].Get());
+
+			tempUpdate.Transition.pResource = tempResource[0].Get();
+			DXRCommandList->ResourceBarrier(1, &tempUpdate);
 		}
 
 		// Changing the backbuffer back to present.
