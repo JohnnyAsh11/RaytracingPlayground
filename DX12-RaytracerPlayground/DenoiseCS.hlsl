@@ -25,5 +25,5 @@ void main(uint3 threadId : SV_DispatchThreadID)
         totalPreviousFrames += prevFramePixel;
     }
     
-    raytraceOutput[threadId.xy] = currentPixel + (totalPreviousFrames / MAX_FRAME_HISTORY);
+    raytraceOutput[threadId.xy] = (totalPreviousFrames / MAX_FRAME_HISTORY);
 }
