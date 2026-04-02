@@ -43,11 +43,6 @@ namespace RayTracing
 // Makes use of integer division to ensure we are aligned to the proper multiple of "alignment"
 #define ALIGN(value, alignment) (((value + alignment - 1) / alignment) * alignment)
 
-
-// --------------------------------------------------------
-// Check for raytracing support, prepare main API objects
-// and create all necessary resources
-// --------------------------------------------------------
 HRESULT RayTracing::Initialize(
 	unsigned int outputWidth,
 	unsigned int outputHeight,
@@ -127,11 +122,6 @@ void RayTracing::CreateBilateralFilterPipeline()
 		IID_PPV_ARGS(m_pBilateralFilterPso.GetAddressOf()));
 }
 
-// --------------------------------------------------------
-// Creates the root signatures necessary for raytracing:
-//  - A global signature used across all shaders
-//  - A local signature used for each ray hit
-// --------------------------------------------------------
 void RayTracing::CreateRaytracingRootSignatures()
 {
 	// Don't bother if DXR isn't available
@@ -178,10 +168,6 @@ void RayTracing::CreateRaytracingRootSignatures()
 	}
 }
 
-// --------------------------------------------------------
-// Creates the raytracing pipeline state, which holds
-// information about the shaders, payload, root signatures, etc.
-// --------------------------------------------------------
 void RayTracing::CreateRaytracingPipelineState(std::wstring raytracingShaderLibraryFile)
 {
 	// Don't bother if DXR isn't available
@@ -274,14 +260,6 @@ void RayTracing::CreateRaytracingPipelineState(std::wstring raytracingShaderLibr
 
 	// === Shader config (payload) ===
 	D3D12_RAYTRACING_SHADER_CONFIG shaderConfigDesc = {};
-	/*
-	struct RayPayload
-	{
-		float3 color;
-		unsigned int RecursionDepth;
-		unsigned int RayPerPixelIndex;
-	};
-	*/
 	shaderConfigDesc.MaxPayloadSizeInBytes = sizeof(DirectX::XMFLOAT3) + (sizeof(unsigned int) * 2);
 	shaderConfigDesc.MaxAttributeSizeInBytes = sizeof(DirectX::XMFLOAT2); // Assuming a float2 for barycentric coords for now
 
@@ -335,12 +313,6 @@ void RayTracing::CreateRaytracingPipelineState(std::wstring raytracingShaderLibr
 	RaytracingPipelineStateObject->QueryInterface(IID_PPV_ARGS(&RaytracingPipelineProperties));
 }
 
-// --------------------------------------------------------
-// Sets up the shader table, which holds shader identifiers
-// and local root signatures for all possible shaders
-// used during raytracing.  Note that this is just a big
-// chunk of GPU memory we need to manage ourselves.
-// --------------------------------------------------------
 void RayTracing::CreateShaderTables()
 {
 	// Don't bother if DXR isn't available
@@ -426,12 +398,6 @@ void RayTracing::CreateShaderTables()
 	}
 }
 
-// --------------------------------------------------------
-// Creates a texture & wraps it with an Unordered Access View,
-// allowing shaders to directly write into this memory.  The
-// data in this texture will later be directly copied to the
-// back buffer after raytracing is complete.
-// --------------------------------------------------------
 void RayTracing::CreateRaytracingOutputUAV(unsigned int width, unsigned int height)
 {
 	Width = width;
@@ -503,9 +469,6 @@ void RayTracing::CreateRaytracingOutputUAV(unsigned int width, unsigned int heig
 		FilteringOutputUAV_CPU);
 }
 
-// --------------------------------------------------------
-// If the window size changes, so too should the output texture
-// --------------------------------------------------------
 void RayTracing::ResizeOutputUAV(
 	unsigned int outputWidth,
 	unsigned int outputHeight)
@@ -521,12 +484,6 @@ void RayTracing::ResizeOutputUAV(
 	CreateRaytracingOutputUAV(outputWidth, outputHeight);
 }
 
-// --------------------------------------------------------
-// Creates a BLAS for a particular mesh.  
-// 
-// NOTE: This demo assumes exactly one BLAS, so running this 
-// method more than once is not advised!
-// --------------------------------------------------------
 MeshRayTracingData RayTracing::CreateBottomLevelAccelerationStructureForMesh(Mesh* mesh)
 {
 	// Raytracing-related data for this mesh
@@ -634,11 +591,6 @@ MeshRayTracingData RayTracing::CreateBottomLevelAccelerationStructureForMesh(Mes
 	return rayTracingData;
 }
 
-// --------------------------------------------------------
-// Creates the top level accel structure, which can be made
-// up of one or more BLAS instances, each with their own
-// unique transform.  This demo uses exactly one BLAS instance.
-// --------------------------------------------------------
 void RayTracing::CreateTopLevelAccelerationStructureForScene(std::vector<std::shared_ptr<Entity>> scene)
 {
 	// Don't bother if DXR isn't available or the AS is finalized already
@@ -770,27 +722,27 @@ void RayTracing::CreateTopLevelAccelerationStructureForScene(std::vector<std::sh
 	Graphics::Device->CreateShaderResourceView(0, &srvDesc, TLASDescriptor_CPU);
 }
 
-// --------------------------------------------------------
-// Performs the actual raytracing work
-// --------------------------------------------------------
 void RayTracing::Raytrace(
 	std::shared_ptr<Camera> camera, 
 	Microsoft::WRL::ComPtr<ID3D12Resource> currentBackBuffer,
 	unsigned int a_uCubemapIndex)
 {
 	if (!dxrResourcesInitialized || !dxrAvailable)
+	{
 		return;
+	}
 
-	// Transition the output-related resources to the proper states
+	// Transition the resources back to the proper state for new frame.
 	D3D12_RESOURCE_BARRIER outputBarriers[2] = {};
 	{
-		// Back buffer needs to be COPY DESTINATION (for later)
+		// Transitioning the back buffer to the copy destination state 
+		// since this function will only ever use the back buffer as a copy dest.
 		outputBarriers[0].Transition.pResource = currentBackBuffer.Get();
 		outputBarriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_PRESENT;
 		outputBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
 		outputBarriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-		// Raytracing output needs to be unordered access for raytracing
+		// Raytracing output needs to be unordered access for raytracing shaders.
 		outputBarriers[1].Transition.pResource = RaytracingOutput.Get();
 		outputBarriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
 		outputBarriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
@@ -799,12 +751,11 @@ void RayTracing::Raytrace(
 		DXRCommandList->ResourceBarrier(2, outputBarriers);
 	}
 
-	// Grab and fill a constant buffer
+	// Fill the constant buffer with necessary data:
 	RayTracingSceneData sceneData = {};
 	sceneData.RecursionDepth = RecursionDepth;
 	sceneData.RaysPerPixel = RaysPerPixel;
 	sceneData.CameraPosition = camera->GetTransform().GetPosition();
-
 	DirectX::XMFLOAT4X4 view = camera->GetView();
 	DirectX::XMFLOAT4X4 proj = camera->GetProjection();
 	DirectX::XMMATRIX v = DirectX::XMLoadFloat4x4(&view);
@@ -814,72 +765,75 @@ void RayTracing::Raytrace(
 
 	D3D12_GPU_DESCRIPTOR_HANDLE cbuffer = Graphics::IncrementCBufferGetHandle(&sceneData, sizeof(RayTracingSceneData));
 
-	// ACTUAL RAYTRACING HERE
+	// Set the CBV/SRV/UAV descriptor heap:
+	ID3D12DescriptorHeap* heap[] = { Graphics::CBVSRVDescriptorHeap.Get() };
+	DXRCommandList->SetDescriptorHeaps(1, heap);
+
+	// Set the pipeline state and root sig for raytracing
+	DXRCommandList->SetPipelineState1(RaytracingPipelineStateObject.Get());
+	DXRCommandList->SetComputeRootSignature(GlobalRaytracingRootSig.Get());
+
+	// Setting the raytracing shader constants.
+	RayTracingDrawData data{};
+	data.SceneDataConstantBufferIndex = Graphics::GetDescriptorIndex(cbuffer);
+	data.OutputUAVDescriptorIndex = Graphics::GetDescriptorIndex(RaytracingOutputUAV_GPU);
+	data.EntityDataDescriptorIndex = Graphics::GetDescriptorIndex(EntityDataUAV_GPU);
+	data.SceneTLASDescriptorIndex = Graphics::GetDescriptorIndex(TLASDescriptor_GPU);
+	data.SkyboxDescriptorIndex = a_uCubemapIndex;
+	DXRCommandList->SetComputeRoot32BitConstants(
+		0,												   
+		sizeof(RayTracingDrawData) / sizeof(unsigned int), 
+		&data,											   
+		0);												   
+
+	// Set up dispatch shader table details
+	D3D12_DISPATCH_RAYS_DESC dispatchDesc = {};
 	{
-		// Set the CBV/SRV/UAV descriptor heap
-		ID3D12DescriptorHeap* heap[] = { Graphics::CBVSRVDescriptorHeap.Get() };
-		DXRCommandList->SetDescriptorHeaps(1, heap);
+		// Choose a specific ray gen shader (offset address to proper record)
+		dispatchDesc.RayGenerationShaderRecord.StartAddress = RayGenTable->GetGPUVirtualAddress();
+		dispatchDesc.RayGenerationShaderRecord.SizeInBytes = rayGenRecordSize;
 
-		// Set the pipeline state and root sig for raytracing
-		DXRCommandList->SetPipelineState1(RaytracingPipelineStateObject.Get()); // Note the "1" on the function name
-		DXRCommandList->SetComputeRootSignature(GlobalRaytracingRootSig.Get());
+		// Describe entire miss shader table
+		dispatchDesc.MissShaderTable.StartAddress = MissTable->GetGPUVirtualAddress();
+		dispatchDesc.MissShaderTable.SizeInBytes = missTableSize;
+		dispatchDesc.MissShaderTable.StrideInBytes = missRecordSize;
 
-		// Set up root constants for resource indexing
-		RayTracingDrawData data{};
-		data.SceneDataConstantBufferIndex = Graphics::GetDescriptorIndex(cbuffer);
-		data.OutputUAVDescriptorIndex = Graphics::GetDescriptorIndex(RaytracingOutputUAV_GPU);
-		data.EntityDataDescriptorIndex = Graphics::GetDescriptorIndex(EntityDataUAV_GPU);
-		data.SceneTLASDescriptorIndex = Graphics::GetDescriptorIndex(TLASDescriptor_GPU);
-		data.SkyboxDescriptorIndex = a_uCubemapIndex;
-		DXRCommandList->SetComputeRoot32BitConstants(
-			0,												   // Root parameter index
-			sizeof(RayTracingDrawData) / sizeof(unsigned int), // Number of 32-bit values
-			&data,											   // Pointer to data
-			0);												   // Offset in 32-bit values
-
-		// Dispatch rays
-		D3D12_DISPATCH_RAYS_DESC dispatchDesc = {};
-
-		// Set up dispatch shader table details
-		{
-			// Choose a specific ray gen shader (offset address to proper record)
-			dispatchDesc.RayGenerationShaderRecord.StartAddress = RayGenTable->GetGPUVirtualAddress();
-			dispatchDesc.RayGenerationShaderRecord.SizeInBytes = rayGenRecordSize;
-
-			// Describe entire miss shader table
-			dispatchDesc.MissShaderTable.StartAddress = MissTable->GetGPUVirtualAddress();
-			dispatchDesc.MissShaderTable.SizeInBytes = missTableSize;
-			dispatchDesc.MissShaderTable.StrideInBytes = missRecordSize;
-
-			// Descrive entire hit group table
-			dispatchDesc.HitGroupTable.StartAddress = HitGroupTable->GetGPUVirtualAddress();
-			dispatchDesc.HitGroupTable.SizeInBytes = hitGroupTableSize;
-			dispatchDesc.HitGroupTable.StrideInBytes = hitGroupRecordSize;
-		}
-
-		// Set number of rays to match screen size
-		dispatchDesc.Width = Window::GetWidth();
-		dispatchDesc.Height = Window::GetHeight();
-		dispatchDesc.Depth = 1; // Can have a 3D grid, but we don't need that
-
-		// GO!
-		DXRCommandList->DispatchRays(&dispatchDesc);
+		// Descrive entire hit group table
+		dispatchDesc.HitGroupTable.StartAddress = HitGroupTable->GetGPUVirtualAddress();
+		dispatchDesc.HitGroupTable.SizeInBytes = hitGroupTableSize;
+		dispatchDesc.HitGroupTable.StrideInBytes = hitGroupRecordSize;
 	}
 
+	// Ensure the rays match the window dimensions.
+	dispatchDesc.Width = Width;
+	dispatchDesc.Height = Height;
+	dispatchDesc.Depth = 1;
+
+	// Actually starting up the ray tracing pipeline and sending rays out.
+	DXRCommandList->DispatchRays(&dispatchDesc);
+
+	// Perform post processes and set frame states for presentation and next frame.
+	FramePostProcess(currentBackBuffer, outputBarriers);
+}
+
+void RayTracing::FramePostProcess(
+	Microsoft::WRL::ComPtr<ID3D12Resource> currentBackBuffer,
+	D3D12_RESOURCE_BARRIER outputBarriers[2])
+{
 	if (!m_bFilterOn)
 	{
-		// Transition the raytracing output to COPY SOURCE
+		// Transition the raytracing frame to a copy source.
 		outputBarriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 		outputBarriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
 		DXRCommandList->ResourceBarrier(1, &outputBarriers[1]);
 
-		// Copy the raytracing output into the back buffer
+		// Copy the raytracing output into the back buffer:
 		DXRCommandList->CopyResource(currentBackBuffer.Get(), RaytracingOutput.Get());
 
+		// Transition the back buffer to present for final render.
 		outputBarriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
 		outputBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
 		DXRCommandList->ResourceBarrier(1, &outputBarriers[0]);
-		return;
 	}
 	else
 	{
@@ -930,9 +884,6 @@ void RayTracing::Raytrace(
 	}
 }
 
-// --------------------------------------------------------
-// Creates the buffer for entity data read when ray tracing
-// --------------------------------------------------------
 void RayTracing::CreateEntityDataBuffer(std::vector<std::shared_ptr<Entity>> scene)
 {
 	// Set up entity data array

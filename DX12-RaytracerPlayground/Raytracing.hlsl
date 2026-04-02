@@ -51,11 +51,7 @@ SamplerState Sampler : register(s0);
 
 float FresnelView(float3 n, float3 v, float f0)
 {
-	// Pre-calculations
-    float NdotV = saturate(dot(n, v));
-
-	// Final value
-    return f0 + (1 - f0) * pow(1 - NdotV, 5);
+    return f0 + (1 - f0) * pow(1 - saturate(dot(n, v)), 5);
 }
 
 // === Helpers ===

@@ -174,7 +174,9 @@ void Window::CreateConsoleWindow(int a_nBufferLines, int a_nBufferColumns, int a
 LRESULT Window::ProcessMessage(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	if (ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam))
+	{
 		return true;
+	}
 
 	// Checking the incoming message and handle accordingly.
 	switch (uMsg)

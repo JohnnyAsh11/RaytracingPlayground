@@ -15,6 +15,7 @@
 
 namespace RayTracing
 {
+	// Stores window width/height data for ease of use.
 	inline unsigned int Width;
 	inline unsigned int Height;
 
@@ -71,32 +72,71 @@ namespace RayTracing
 	inline D3D12_CPU_DESCRIPTOR_HANDLE EntityDataUAV_CPU{};
 	inline D3D12_GPU_DESCRIPTOR_HANDLE EntityDataUAV_GPU{};
 
+	/// <summary>
+	/// Initializes the RayTracing pipeline for the application.
+	/// </summary>
 	HRESULT Initialize(
 		unsigned int outputWidth,
 		unsigned int outputHeight,
 		std::wstring raytracingShaderLibraryFile);
 	
+	/// <summary>
+	/// Resizes the raytracing UAVs on window resizing.
+	/// </summary>
 	void ResizeOutputUAV(
 		unsigned int outputWidth,
 		unsigned int outputHeight);
 
+	/// <summary>
+	/// Performs the actual work for raytracing.  Results stored in RaytracingOutput resource.
+	/// </summary>
 	void Raytrace(
 		std::shared_ptr<Camera> camera, 
 		Microsoft::WRL::ComPtr<ID3D12Resource> currentBackBuffer,
 		unsigned int a_uCubemapIndex = -1);
 
+	/// <summary>
+	/// Readys the raytraced frame for presentation.  Performs all filtering post processes if enabled.
+	/// </summary>
+	void FramePostProcess(
+		Microsoft::WRL::ComPtr<ID3D12Resource> currentBackBuffer,
+		D3D12_RESOURCE_BARRIER outputBarriers[2]);
+
+	/// <summary>
+	/// Generates a buffer containing cbuffer style data for entities in the scene.
+	/// </summary>
 	void CreateEntityDataBuffer(std::vector<std::shared_ptr<Entity>> scene);
 
-	// Helpers for creating acceleration structures
+	/// <summary>
+	/// Creates the BLAS for a passed in Mesh.
+	/// </summary>
 	MeshRayTracingData CreateBottomLevelAccelerationStructureForMesh(Mesh* mesh);
 
+	/// <summary>
+	/// Creates a TLAS for all entities in a collection/scene.
+	/// </summary>
 	void CreateTopLevelAccelerationStructureForScene(std::vector<std::shared_ptr<Entity>> scene);
 
-	// Helper functions for each initalization step
+	// - - INITIALIZATION HELPER FUNCTIONS - -
+	/// <summary>
+	/// Initializes the Bilateral Filter compute shader pipeline for raytraced frames.
+	/// </summary>
 	void CreateBilateralFilterPipeline();
+	/// <summary>
+	/// Creates the root signature used for raytracing.
+	/// </summary>
 	void CreateRaytracingRootSignatures();
+	/// <summary>
+	/// Creates the (raytracing) pipeline state object used for the raytracing pipeline.
+	/// </summary>
 	void CreateRaytracingPipelineState(std::wstring raytracingShaderLibraryFile);
+	/// <summary>
+	/// Generates the shader tables containing the RayGen/Miss/ClosestHit shaders.
+	/// </summary>
 	void CreateShaderTables();
+	/// <summary>
+	/// Creates all necessary UAV resources for Raytracing pipeline.
+	/// </summary>
 	void CreateRaytracingOutputUAV(unsigned int width, unsigned int height);
 }
 

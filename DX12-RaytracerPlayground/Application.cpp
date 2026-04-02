@@ -234,7 +234,7 @@ void BuildImGui()
 {
 	ImGui::Begin("Debug");
 	ImGui::Text("Frame rate: %f fps", ImGui::GetIO().Framerate);
-	if (ImGui::TreeNode("PathTracing"))
+	if (ImGui::TreeNode("Path Tracing"))
 	{
 		ImGui::DragInt("Recursion Depth", &RayTracing::RecursionDepth, 1, 1, 20);
 		ImGui::DragInt("Rays Per Pixel", &RayTracing::RaysPerPixel, 1, 1, 50);
