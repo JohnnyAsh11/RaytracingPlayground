@@ -903,13 +903,11 @@ void RayTracing::Raytrace(
 			0);
 
 		// Dispatch
-		UINT w = Window::GetWidth();
-		UINT h = Window::GetHeight();
-
 		DXRCommandList->Dispatch(
-			(w + 7) / 8,
-			(h + 7) / 8,
-			1); 
+			(Width + 7) / 8,
+			(Height + 7) / 8,
+			1);
+
 		D3D12_RESOURCE_BARRIER uavBarrier = {};
 		uavBarrier.UAV.pResource = RaytracingOutput.Get();
 		uavBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
