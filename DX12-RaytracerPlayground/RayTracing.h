@@ -50,16 +50,21 @@ namespace RayTracing
 	inline D3D12_GPU_DESCRIPTOR_HANDLE RaytracingOutputUAV_GPU;
 
 	// Compute shader filteration output:
+	inline Microsoft::WRL::ComPtr<ID3D12RootSignature> m_pBilateralFilterRootSig;
+	inline Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pBilateralFilterPso;
 	inline Microsoft::WRL::ComPtr<ID3D12Resource> FilteringOutput;
 	inline D3D12_CPU_DESCRIPTOR_HANDLE FilteringOutputUAV_CPU;
 	inline D3D12_GPU_DESCRIPTOR_HANDLE FilteringOutputUAV_GPU;
 	inline bool m_bFilterOn = true;
 
-	// Temporal Filteration Resources.
-	inline const unsigned int TemporalFilterationFrameCount = MAX_FRAME_HISTORY;
-	inline Microsoft::WRL::ComPtr<ID3D12Resource> TemporalFilterationResources[TemporalFilterationFrameCount];
-	inline D3D12_CPU_DESCRIPTOR_HANDLE FilterationHandleUAV_CPU[TemporalFilterationFrameCount];
-	inline D3D12_GPU_DESCRIPTOR_HANDLE FilterationHandleUAV_GPU[TemporalFilterationFrameCount];
+	// Starter values for Bilateral Filter.
+	inline float SigmaSpatial = 2.0f;
+	inline float SigmaColor = 0.1f;
+	inline int KernelRadius = 2.0f;
+
+	// Starter values for path tracing.
+	inline int RaysPerPixel = 5;
+	inline int RecursionDepth = 5;
 
 	// Buffer for bindless per-entity data
 	inline Microsoft::WRL::ComPtr<ID3D12Resource> EntityDataStructuredBuffer;
@@ -78,8 +83,6 @@ namespace RayTracing
 	void Raytrace(
 		std::shared_ptr<Camera> camera, 
 		Microsoft::WRL::ComPtr<ID3D12Resource> currentBackBuffer,
-		Microsoft::WRL::ComPtr<ID3D12RootSignature> m_pDenoiseRootSig,
-		Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pDenoisePso,
 		unsigned int a_uCubemapIndex = -1);
 
 	void CreateEntityDataBuffer(std::vector<std::shared_ptr<Entity>> scene);
@@ -90,6 +93,7 @@ namespace RayTracing
 	void CreateTopLevelAccelerationStructureForScene(std::vector<std::shared_ptr<Entity>> scene);
 
 	// Helper functions for each initalization step
+	void CreateBilateralFilterPipeline();
 	void CreateRaytracingRootSignatures();
 	void CreateRaytracingPipelineState(std::wstring raytracingShaderLibraryFile);
 	void CreateShaderTables();

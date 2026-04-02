@@ -14,9 +14,6 @@ private:
 	// General application variables.
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> emptyPso;
 
-	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_pDenoiseRootSig;
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pDenoisePso;
-
 	D3D12_VIEWPORT viewport{};
 	D3D12_RECT scissorRect{};
 

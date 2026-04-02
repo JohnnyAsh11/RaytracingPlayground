@@ -175,7 +175,7 @@
     <None Include="Random.hlsli" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="DenoiseCS.hlsl">
+    <FxCompile Include="BilateralFilterCS.hlsl">
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.6</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
     </FxCompile>

@@ -2,6 +2,7 @@
 #include "Graphics.h"
 #include "Window.h"
 #include "Mesh.h"
+#include "FileHelper.h"
 
 #include <vector>
 #include <d3dcompiler.h>
@@ -78,12 +79,53 @@ HRESULT RayTracing::Initialize(
 	// Proceed with setup
 	CreateRaytracingRootSignatures();
 	CreateRaytracingPipelineState(raytracingShaderLibraryFile);
+	CreateBilateralFilterPipeline();
 	CreateRaytracingOutputUAV(outputWidth, outputHeight);
 	CreateShaderTables();
 	dxrResourcesInitialized = true;
 	return S_OK;
 }
 
+void RayTracing::CreateBilateralFilterPipeline()
+{
+	Microsoft::WRL::ComPtr<ID3DBlob> filterShaderByteCode;
+	D3DReadFileToBlob(FromExeDir(L"BilateralFilterCS.cso").c_str(), filterShaderByteCode.GetAddressOf());
+
+	// Compute RootSig/PSO creation.
+	D3D12_ROOT_PARAMETER rootParams[1];
+	rootParams[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+	rootParams[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+	rootParams[0].Constants.Num32BitValues = sizeof(BilateralFilterData) / sizeof(unsigned int);
+	rootParams[0].Constants.RegisterSpace = 0;
+	rootParams[0].Constants.ShaderRegister = 0;
+
+	ID3DBlob* serializedRootSig = 0;
+	ID3DBlob* errors = 0;
+	D3D12_ROOT_SIGNATURE_DESC rootSig = {};
+	rootSig.Flags = D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED;
+	rootSig.NumParameters = ARRAYSIZE(rootParams);
+	rootSig.pParameters = rootParams;
+
+	HRESULT result = D3D12SerializeRootSignature(
+		&rootSig,
+		D3D_ROOT_SIGNATURE_VERSION_1,
+		&serializedRootSig,
+		&errors);
+	Graphics::Device->CreateRootSignature(
+		0,
+		serializedRootSig->GetBufferPointer(),
+		serializedRootSig->GetBufferSize(),
+		IID_PPV_ARGS(m_pBilateralFilterRootSig.GetAddressOf()));
+
+	D3D12_COMPUTE_PIPELINE_STATE_DESC computePsoDesc{};
+	computePsoDesc.CS.BytecodeLength = filterShaderByteCode->GetBufferSize();
+	computePsoDesc.CS.pShaderBytecode = filterShaderByteCode->GetBufferPointer();
+	computePsoDesc.pRootSignature = m_pBilateralFilterRootSig.Get();
+
+	Graphics::Device->CreateComputePipelineState(
+		&computePsoDesc, 
+		IID_PPV_ARGS(m_pBilateralFilterPso.GetAddressOf()));
+}
 
 // --------------------------------------------------------
 // Creates the root signatures necessary for raytracing:
@@ -430,16 +472,6 @@ void RayTracing::CreateRaytracingOutputUAV(unsigned int width, unsigned int heig
 		D3D12_RESOURCE_STATE_COMMON,
 		0,
 		IID_PPV_ARGS(FilteringOutput.GetAddressOf()));
-	for (int i = 0; i < TemporalFilterationFrameCount; i++)
-	{
-		DXRDevice->CreateCommittedResource(
-			&heapDesc,
-			D3D12_HEAP_FLAG_NONE,
-			&desc,
-			D3D12_RESOURCE_STATE_COMMON,
-			0,
-			IID_PPV_ARGS(TemporalFilterationResources[i].GetAddressOf()));
-	}
 
 	// Do we have a UAV alrady?
 	if (!RaytracingOutputUAV_GPU.ptr)
@@ -451,12 +483,6 @@ void RayTracing::CreateRaytracingOutputUAV(unsigned int width, unsigned int heig
 		Graphics::ReserveDescriptorHeapSlot(
 			&FilteringOutputUAV_CPU,
 			&FilteringOutputUAV_GPU);
-		for (int i = 0; i < TemporalFilterationFrameCount; i++)
-		{
-			Graphics::ReserveDescriptorHeapSlot(
-				&FilterationHandleUAV_CPU[i],
-				&FilterationHandleUAV_GPU[i]);
-		}
 	}
 
 	// Set up the UAV
@@ -475,14 +501,6 @@ void RayTracing::CreateRaytracingOutputUAV(unsigned int width, unsigned int heig
 		0,
 		&uavDesc,
 		FilteringOutputUAV_CPU);
-	for (int i = 0; i < TemporalFilterationFrameCount; i++)
-	{
-		DXRDevice->CreateUnorderedAccessView(
-			TemporalFilterationResources[i].Get(),
-			0,
-			&uavDesc,
-			FilterationHandleUAV_CPU[i]);
-	}
 }
 
 // --------------------------------------------------------
@@ -758,15 +776,13 @@ void RayTracing::CreateTopLevelAccelerationStructureForScene(std::vector<std::sh
 void RayTracing::Raytrace(
 	std::shared_ptr<Camera> camera, 
 	Microsoft::WRL::ComPtr<ID3D12Resource> currentBackBuffer,
-	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_pDenoiseRootSig,
-	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_pDenoisePso,
 	unsigned int a_uCubemapIndex)
 {
 	if (!dxrResourcesInitialized || !dxrAvailable)
 		return;
 
 	// Transition the output-related resources to the proper states
-	D3D12_RESOURCE_BARRIER outputBarriers[2 + TemporalFilterationFrameCount] = {};
+	D3D12_RESOURCE_BARRIER outputBarriers[2] = {};
 	{
 		// Back buffer needs to be COPY DESTINATION (for later)
 		outputBarriers[0].Transition.pResource = currentBackBuffer.Get();
@@ -780,29 +796,13 @@ void RayTracing::Raytrace(
 		outputBarriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 		outputBarriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-		if (m_bFilterOn)
-		{
-			for (int i = 2; i < TemporalFilterationFrameCount + 2; i++)
-			{
-				outputBarriers[i].Transition.pResource = TemporalFilterationResources[i - 2].Get();
-				outputBarriers[i].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
-				outputBarriers[i].Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-				outputBarriers[i].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-			}
-
-			DXRCommandList->ResourceBarrier(2 + TemporalFilterationFrameCount, outputBarriers);
-		}
-		else
-		{
-			DXRCommandList->ResourceBarrier(1, &outputBarriers[0]);
-			DXRCommandList->ResourceBarrier(1, &outputBarriers[1]);
-		}
+		DXRCommandList->ResourceBarrier(2, outputBarriers);
 	}
 
 	// Grab and fill a constant buffer
 	RayTracingSceneData sceneData = {};
-	sceneData.RecursionDepth = 10;
-	sceneData.RaysPerPixel = 15;
+	sceneData.RecursionDepth = RecursionDepth;
+	sceneData.RaysPerPixel = RaysPerPixel;
 	sceneData.CameraPosition = camera->GetTransform().GetPosition();
 
 	DirectX::XMFLOAT4X4 view = camera->GetView();
@@ -881,112 +881,53 @@ void RayTracing::Raytrace(
 		DXRCommandList->ResourceBarrier(1, &outputBarriers[0]);
 		return;
 	}
-
-	// Final copy
+	else
 	{
-		// --------------------------------------------------------------------------------------------------
-		// Transition raytracing output to SRV for compute
-		D3D12_RESOURCE_BARRIER computeBarriers[1 + TemporalFilterationFrameCount] = {};
+		// Transition raytracing output to Pixel Shader Resource for compute filter pass.
+		D3D12_RESOURCE_BARRIER computeBarriers[1] = {};
 		computeBarriers[0].Transition.pResource = RaytracingOutput.Get();
 		computeBarriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 		computeBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 		computeBarriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-		for (int i = 1; i < TemporalFilterationFrameCount + 1; i++)
-		{
-			int index = i - 1;
-			computeBarriers[i].Transition.pResource = TemporalFilterationResources[index].Get();
-			computeBarriers[i].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-			computeBarriers[i].Transition.StateAfter = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
-			computeBarriers[i].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-		}
+		DXRCommandList->ResourceBarrier(1, computeBarriers);
 
-		DXRCommandList->ResourceBarrier(TemporalFilterationFrameCount + 1, computeBarriers);
+		// Setting the compute filter root signature and PSO.
+		Graphics::CommandList->SetComputeRootSignature(m_pBilateralFilterRootSig.Get());
+		Graphics::CommandList->SetPipelineState(m_pBilateralFilterPso.Get());
 
-		Graphics::CommandList->SetComputeRootSignature(m_pDenoiseRootSig.Get());
-		Graphics::CommandList->SetPipelineState(m_pDenoisePso.Get());
-
-		FrameDenoiseData denoiseData{};
-		denoiseData.RaytracedFrameIndex = Graphics::GetDescriptorIndex(RaytracingOutputUAV_GPU);
-		denoiseData.FilterOutputIndex = Graphics::GetDescriptorIndex(FilteringOutputUAV_GPU);
-
-		denoiseData.PastFrame1 = Graphics::GetDescriptorIndex(FilterationHandleUAV_GPU[0]);
-		denoiseData.PastFrame2 = Graphics::GetDescriptorIndex(FilterationHandleUAV_GPU[1]);
-		denoiseData.PastFrame3 = Graphics::GetDescriptorIndex(FilterationHandleUAV_GPU[2]);
-		denoiseData.PastFrame4 = Graphics::GetDescriptorIndex(FilterationHandleUAV_GPU[3]);
-
+		// Setting the compute filter constants.
+		BilateralFilterData filterData{};
+		filterData.RaytracedFrameIndex = Graphics::GetDescriptorIndex(RaytracingOutputUAV_GPU);
+		filterData.FilterOutputIndex = Graphics::GetDescriptorIndex(FilteringOutputUAV_GPU);
+		filterData.SigmaSpatial = SigmaSpatial;
+		filterData.SigmaColor = SigmaColor;
+		filterData.KernelRadius = KernelRadius;
 		DXRCommandList->SetComputeRoot32BitConstants(
 			0,
-			sizeof(FrameDenoiseData) / sizeof(unsigned int),
-			&denoiseData,
+			sizeof(BilateralFilterData) / sizeof(unsigned int),
+			&filterData,
 			0);
 
-		// Dispatch
+		// Dispatching the compute filter.
 		DXRCommandList->Dispatch(
 			(Width + 7) / 8,
 			(Height + 7) / 8,
 			1);
 
-		D3D12_RESOURCE_BARRIER uavBarrier = {};
-		uavBarrier.UAV.pResource = RaytracingOutput.Get();
-		uavBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
-		uavBarrier.Flags = D3D12_RESOURCE_BARRIER_FLAG_NONE;
-		DXRCommandList->ResourceBarrier(1, &uavBarrier);
-
-		// Transition denoised output to COPY SOURCE
-		D3D12_RESOURCE_BARRIER finalBarriers[1 + TemporalFilterationFrameCount] = {};
+		// Transition filtered output to a copy source to copy into the back buffer.
+		D3D12_RESOURCE_BARRIER finalBarriers[1] = {};
 		finalBarriers[0].Transition.pResource = RaytracingOutput.Get();
 		finalBarriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
 		finalBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
 		finalBarriers[0].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-		for (int i = 1; i < TemporalFilterationFrameCount + 1; i++)
-		{
-			int index = i - 1;
-			finalBarriers[i].Transition.pResource = TemporalFilterationResources[index].Get();
-			finalBarriers[i].Transition.StateBefore = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
-			finalBarriers[i].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
-			finalBarriers[i].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-		}
-
-		DXRCommandList->ResourceBarrier(1 + TemporalFilterationFrameCount, finalBarriers);
+		DXRCommandList->ResourceBarrier(1, finalBarriers);
 		DXRCommandList->CopyResource(currentBackBuffer.Get(), FilteringOutput.Get());
-
-		static uint32_t historyIndex = 0;
-
-		// Advance circular index
-		historyIndex = (historyIndex + 1) % TemporalFilterationFrameCount;
-
-		// Current frame goes here
-		ID3D12Resource* currentFrame = TemporalFilterationResources[historyIndex].Get();
-		D3D12_RESOURCE_BARRIER barrier = {};
-		barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
-		barrier.Transition.pResource = currentFrame;
-		barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
-		barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
-		barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-
-		DXRCommandList->ResourceBarrier(1, &barrier);
-		DXRCommandList->CopyResource(
-			currentFrame,
-			RaytracingOutput.Get()
-		);
-
-		barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-		barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
-		DXRCommandList->ResourceBarrier(1, &barrier);
 
 		// Changing the backbuffer back to present.
 		outputBarriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
 		outputBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
 		DXRCommandList->ResourceBarrier(1, &outputBarriers[0]);
-		// --------------------------------------------------------------------------------------------------
-
-		// Back buffer back to PRESENT
-		/*outputBarriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
-		outputBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-		DXRCommandList->ResourceBarrier(1, &outputBarriers[0]);*/
 	}
-
-	// Assuming command list will be executed elsewhere
 }
 
 // --------------------------------------------------------
