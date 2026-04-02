@@ -283,5 +283,6 @@ void BuildImGui()
 {
 	ImGui::Begin("Debug");
 	ImGui::Text("Frame rate: %f fps", ImGui::GetIO().Framerate);
+	ImGui::Checkbox("Temporal Filtering", &RayTracing::m_bFilterOn);
 	ImGui::End();
 }

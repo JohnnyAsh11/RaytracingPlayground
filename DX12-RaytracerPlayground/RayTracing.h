@@ -53,7 +53,7 @@ namespace RayTracing
 	inline Microsoft::WRL::ComPtr<ID3D12Resource> FilteringOutput;
 	inline D3D12_CPU_DESCRIPTOR_HANDLE FilteringOutputUAV_CPU;
 	inline D3D12_GPU_DESCRIPTOR_HANDLE FilteringOutputUAV_GPU;
-	inline bool m_bFilterOn = false;
+	inline bool m_bFilterOn = true;
 
 	// Temporal Filteration Resources.
 	inline const unsigned int TemporalFilterationFrameCount = MAX_FRAME_HISTORY;

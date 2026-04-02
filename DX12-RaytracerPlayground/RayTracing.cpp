@@ -780,7 +780,7 @@ void RayTracing::Raytrace(
 		outputBarriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 		outputBarriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-		if (!m_bFilterOn)
+		if (m_bFilterOn)
 		{
 			for (int i = 2; i < TemporalFilterationFrameCount + 2; i++)
 			{
