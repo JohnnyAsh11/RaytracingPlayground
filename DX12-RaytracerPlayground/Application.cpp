@@ -43,10 +43,10 @@ Application::Application()
 	// Loading in a texture and creating an empty texture.
 	TextureSet emptyTexture{};
 	TextureSet cobblestone{};
-	cobblestone.AlbedoIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/rust_albedo.png").c_str());
-	cobblestone.NormalIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/rust_normals.png").c_str());
-	cobblestone.MetallicIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/rust_metal.png").c_str());
-	cobblestone.RoughnessIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/rust_roughness.png").c_str());
+	cobblestone.AlbedoIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/scratched_albedo.png").c_str());
+	cobblestone.NormalIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/scratched_normals.png").c_str());
+	cobblestone.MetallicIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/scratched_metal.png").c_str());
+	cobblestone.RoughnessIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/scratched_roughness.png").c_str());
 	
 	// Creating a material with the PBR texture.
 	std::shared_ptr<Material> pCobblestoneMat = std::make_shared<Material>(
@@ -99,7 +99,7 @@ Application::Application()
 		float r = (float)rand() / RAND_MAX;
 		float g = (float)rand() / RAND_MAX;
 		float b = (float)rand() / RAND_MAX;
-		bool isTextureMat = b > 0.5f;
+		bool isTextureMat = r > 0.7f;
 		std::shared_ptr<Material> pMat;
 		if (isTextureMat)
 		{

@@ -63,8 +63,8 @@ namespace RayTracing
 	inline int KernelRadius = 2.0f;
 
 	// Starter values for path tracing.
-	inline int RaysPerPixel = 5;
-	inline int RecursionDepth = 5;
+	inline int RaysPerPixel = 15;
+	inline int RecursionDepth = 10;
 
 	// Buffer for bindless per-entity data
 	inline Microsoft::WRL::ComPtr<ID3D12Resource> EntityDataStructuredBuffer;
