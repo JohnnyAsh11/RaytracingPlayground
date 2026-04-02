@@ -210,7 +210,7 @@ void Application::Update(float a_fDeltaTime, float a_fTotalTime)
 		XMFLOAT3 scale = m_lEntities[i]->GetTransform().GetScale();
 
 		float distance = 3.0f;
-		float speed = 2.0f;
+		float speed = 0.5f;
 		if (i % 2)
 		{
 			position.x = (float)sin((a_fTotalTime / speed + i) / distance) * distance;

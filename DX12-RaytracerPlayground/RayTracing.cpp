@@ -780,15 +780,23 @@ void RayTracing::Raytrace(
 		outputBarriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 		outputBarriers[1].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 
-		for (int i = 2; i < TemporalFilterationFrameCount + 2; i++)
+		if (!m_bFilterOn)
 		{
-			outputBarriers[i].Transition.pResource = TemporalFilterationResources[i - 2].Get();
-			outputBarriers[i].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
-			outputBarriers[i].Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-			outputBarriers[i].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
-		}
+			for (int i = 2; i < TemporalFilterationFrameCount + 2; i++)
+			{
+				outputBarriers[i].Transition.pResource = TemporalFilterationResources[i - 2].Get();
+				outputBarriers[i].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
+				outputBarriers[i].Transition.StateAfter = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+				outputBarriers[i].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+			}
 
-		DXRCommandList->ResourceBarrier(2 + TemporalFilterationFrameCount, outputBarriers);
+			DXRCommandList->ResourceBarrier(2 + TemporalFilterationFrameCount, outputBarriers);
+		}
+		else
+		{
+			DXRCommandList->ResourceBarrier(1, &outputBarriers[0]);
+			DXRCommandList->ResourceBarrier(1, &outputBarriers[1]);
+		}
 	}
 
 	// Grab and fill a constant buffer
@@ -858,15 +866,24 @@ void RayTracing::Raytrace(
 		DXRCommandList->DispatchRays(&dispatchDesc);
 	}
 
-	// Final copy
+	if (!m_bFilterOn)
 	{
 		// Transition the raytracing output to COPY SOURCE
-		/*outputBarriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+		outputBarriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 		outputBarriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
-		DXRCommandList->ResourceBarrier(1, &outputBarriers[1]);*/
+		DXRCommandList->ResourceBarrier(1, &outputBarriers[1]);
 
 		// Copy the raytracing output into the back buffer
-		//DXRCommandList->CopyResource(currentBackBuffer.Get(), RaytracingOutput.Get());
+		DXRCommandList->CopyResource(currentBackBuffer.Get(), RaytracingOutput.Get());
+
+		outputBarriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+		outputBarriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+		DXRCommandList->ResourceBarrier(1, &outputBarriers[0]);
+		return;
+	}
+
+	// Final copy
+	{
 		// --------------------------------------------------------------------------------------------------
 		// Transition raytracing output to SRV for compute
 		D3D12_RESOURCE_BARRIER computeBarriers[1 + TemporalFilterationFrameCount] = {};
@@ -891,10 +908,11 @@ void RayTracing::Raytrace(
 		FrameDenoiseData denoiseData{};
 		denoiseData.RaytracedFrameIndex = Graphics::GetDescriptorIndex(RaytracingOutputUAV_GPU);
 		denoiseData.FilterOutputIndex = Graphics::GetDescriptorIndex(FilteringOutputUAV_GPU);
-		for (int i = 0; i < TemporalFilterationFrameCount; i++)
-		{
-			denoiseData.PreviousFrameIndices[i] = Graphics::GetDescriptorIndex(FilterationHandleUAV_GPU[i]);
-		}
+
+		denoiseData.PastFrame1 = Graphics::GetDescriptorIndex(FilterationHandleUAV_GPU[0]);
+		denoiseData.PastFrame2 = Graphics::GetDescriptorIndex(FilterationHandleUAV_GPU[1]);
+		denoiseData.PastFrame3 = Graphics::GetDescriptorIndex(FilterationHandleUAV_GPU[2]);
+		denoiseData.PastFrame4 = Graphics::GetDescriptorIndex(FilterationHandleUAV_GPU[3]);
 
 		DXRCommandList->SetComputeRoot32BitConstants(
 			0,

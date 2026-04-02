@@ -3,7 +3,7 @@
 
 #include <DirectXMath.h>
 
-#define MAX_FRAME_HISTORY 3
+#define MAX_FRAME_HISTORY 4
 
 // Root constants for bindless resources
 struct RayTracingDrawData
@@ -50,7 +50,11 @@ struct FrameDenoiseData
 {
 	unsigned int RaytracedFrameIndex;
 	unsigned int FilterOutputIndex;
-	unsigned int PreviousFrameIndices[MAX_FRAME_HISTORY];
+
+	unsigned int PastFrame1;
+	unsigned int PastFrame2;
+	unsigned int PastFrame3;
+	unsigned int PastFrame4;
 };
 
 #endif //__BUFFERSTRUCTS_H_
