@@ -191,10 +191,6 @@ void Miss(inout RayPayload payload)
 		// Sampling the cubemap at the direction of the ray in world space.
         payload.color *= skybox.SampleLevel(Sampler, WorldRayDirection(), 0).rgb;
     }
-    else
-    {
-        payload.color *= float3(0.0f, 0.0f, 0.0f);
-    }
 }
 
 
