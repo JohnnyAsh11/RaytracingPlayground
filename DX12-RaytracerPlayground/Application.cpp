@@ -16,7 +16,7 @@ void BuildImGui();
 
 Application::Application()
 {
-	srand(time(0));
+	srand(static_cast<unsigned int>(time(0)));
 
 	// Initialize raytracing
 	RayTracing::Initialize(
@@ -245,7 +245,7 @@ void BuildImGui()
 		ImGui::Checkbox("Bilateral Filtering", &RayTracing::m_bFilterOn);
 		ImGui::DragFloat("Sigma Spatial", &RayTracing::SigmaSpatial, 0.5f, 1.0f, 15.0f);
 		ImGui::DragFloat("Sigma Color", &RayTracing::SigmaColor, 0.1f, 0.1f, 5.0f);
-		ImGui::DragInt("Kernel Radius", &RayTracing::KernelRadius, 1.0f, 1.0f, 15.0f);
+		ImGui::DragInt("Kernel Radius", &RayTracing::KernelRadius, 1, 1, 15);
 		ImGui::TreePop();
 	}
 	ImGui::End();

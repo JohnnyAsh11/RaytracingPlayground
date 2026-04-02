@@ -612,7 +612,7 @@ void RayTracing::CreateTopLevelAccelerationStructureForScene(std::vector<std::sh
 		instanceDesc.InstanceID = 0;
 		instanceDesc.InstanceContributionToHitGroupIndex = 0;
 		instanceDesc.InstanceMask = 0xFF; 
-		memcpy(&instanceDesc.Transform, &transform, sizeof(float) * 3.0f * 4.0f); // Copy first [3][4] elements
+		memcpy(&instanceDesc.Transform, &transform, (size_t)(sizeof(float) * 3.0f * 4.0f)); // Copy first [3][4] elements
 		instanceDesc.AccelerationStructure = current->GetMesh()->GetRayTracingData().BLAS->GetGPUVirtualAddress();
 		instanceDesc.Flags = D3D12_RAYTRACING_INSTANCE_FLAG_NONE;
 

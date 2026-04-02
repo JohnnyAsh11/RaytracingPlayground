@@ -59,9 +59,9 @@ namespace RayTracing
 	inline bool m_bFilterOn = true;
 
 	// Starter values for Bilateral Filter.
-	inline float SigmaSpatial = 2.0f;
+	inline float SigmaSpatial = 15.0f;
 	inline float SigmaColor = 0.1f;
-	inline int KernelRadius = 2.0f;
+	inline int KernelRadius = 5;
 
 	// Starter values for path tracing.
 	inline int RaysPerPixel = 15;
