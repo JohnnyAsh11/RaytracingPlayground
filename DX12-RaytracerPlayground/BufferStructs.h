@@ -49,6 +49,7 @@ struct RayTracingEntityData
 struct FrameDenoiseData
 {
 	unsigned int RaytracedFrameIndex;
+	unsigned int FilterOutputIndex;
 	unsigned int PreviousFrameIndices[MAX_FRAME_HISTORY];
 };
 

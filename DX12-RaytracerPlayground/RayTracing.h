@@ -44,10 +44,15 @@ namespace RayTracing
 	inline D3D12_CPU_DESCRIPTOR_HANDLE TLASDescriptor_CPU{};
 	inline D3D12_GPU_DESCRIPTOR_HANDLE TLASDescriptor_GPU{};
 
-	// Actual output resource
+	// Actual raytracing output resource:
 	inline Microsoft::WRL::ComPtr<ID3D12Resource> RaytracingOutput;
 	inline D3D12_CPU_DESCRIPTOR_HANDLE RaytracingOutputUAV_CPU;
 	inline D3D12_GPU_DESCRIPTOR_HANDLE RaytracingOutputUAV_GPU;
+
+	// Compute shader filteration output:
+	inline Microsoft::WRL::ComPtr<ID3D12Resource> FilteringOutput;
+	inline D3D12_CPU_DESCRIPTOR_HANDLE FilteringOutputUAV_CPU;
+	inline D3D12_GPU_DESCRIPTOR_HANDLE FilteringOutputUAV_GPU;
 
 	// Temporal Filteration Resources.
 	inline const unsigned int TemporalFilterationFrameCount = MAX_FRAME_HISTORY;

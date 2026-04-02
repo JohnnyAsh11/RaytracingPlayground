@@ -423,6 +423,13 @@ void RayTracing::CreateRaytracingOutputUAV(unsigned int width, unsigned int heig
 		D3D12_RESOURCE_STATE_COMMON,
 		0,
 		IID_PPV_ARGS(RaytracingOutput.GetAddressOf()));
+	DXRDevice->CreateCommittedResource(
+		&heapDesc,
+		D3D12_HEAP_FLAG_NONE,
+		&desc,
+		D3D12_RESOURCE_STATE_COMMON,
+		0,
+		IID_PPV_ARGS(FilteringOutput.GetAddressOf()));
 	for (int i = 0; i < TemporalFilterationFrameCount; i++)
 	{
 		DXRDevice->CreateCommittedResource(
@@ -441,6 +448,9 @@ void RayTracing::CreateRaytracingOutputUAV(unsigned int width, unsigned int heig
 		Graphics::ReserveDescriptorHeapSlot(
 			&RaytracingOutputUAV_CPU,
 			&RaytracingOutputUAV_GPU);
+		Graphics::ReserveDescriptorHeapSlot(
+			&FilteringOutputUAV_CPU,
+			&FilteringOutputUAV_GPU);
 		for (int i = 0; i < TemporalFilterationFrameCount; i++)
 		{
 			Graphics::ReserveDescriptorHeapSlot(
@@ -453,11 +463,18 @@ void RayTracing::CreateRaytracingOutputUAV(unsigned int width, unsigned int heig
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
 	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
 
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+
 	DXRDevice->CreateUnorderedAccessView(
 		RaytracingOutput.Get(),
 		0,
 		&uavDesc,
 		RaytracingOutputUAV_CPU);
+	DXRDevice->CreateUnorderedAccessView(
+		FilteringOutput.Get(),
+		0,
+		&uavDesc,
+		FilteringOutputUAV_CPU);
 	for (int i = 0; i < TemporalFilterationFrameCount; i++)
 	{
 		DXRDevice->CreateUnorderedAccessView(
@@ -862,7 +879,7 @@ void RayTracing::Raytrace(
 			int index = i - 1;
 			computeBarriers[i].Transition.pResource = TemporalFilterationResources[index].Get();
 			computeBarriers[i].Transition.StateBefore = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-			computeBarriers[i].Transition.StateAfter = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+			computeBarriers[i].Transition.StateAfter = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 			computeBarriers[i].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 		}
 
@@ -873,6 +890,7 @@ void RayTracing::Raytrace(
 
 		FrameDenoiseData denoiseData{};
 		denoiseData.RaytracedFrameIndex = Graphics::GetDescriptorIndex(RaytracingOutputUAV_GPU);
+		denoiseData.FilterOutputIndex = Graphics::GetDescriptorIndex(FilteringOutputUAV_GPU);
 		for (int i = 0; i < TemporalFilterationFrameCount; i++)
 		{
 			denoiseData.PreviousFrameIndices[i] = Graphics::GetDescriptorIndex(FilterationHandleUAV_GPU[i]);
@@ -908,13 +926,13 @@ void RayTracing::Raytrace(
 		{
 			int index = i - 1;
 			finalBarriers[i].Transition.pResource = TemporalFilterationResources[index].Get();
-			finalBarriers[i].Transition.StateBefore = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+			finalBarriers[i].Transition.StateBefore = D3D12_RESOURCE_STATE_ALL_SHADER_RESOURCE;
 			finalBarriers[i].Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
 			finalBarriers[i].Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
 		}
 
 		DXRCommandList->ResourceBarrier(1 + TemporalFilterationFrameCount, finalBarriers);
-		DXRCommandList->CopyResource(currentBackBuffer.Get(), RaytracingOutput.Get());
+		DXRCommandList->CopyResource(currentBackBuffer.Get(), FilteringOutput.Get());
 
 		static uint32_t historyIndex = 0;
 
