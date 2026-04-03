@@ -3,6 +3,9 @@
 
 #include <DirectXMath.h>
 
+/// <summary>
+/// Defines a single vertex within a Mesh object.
+/// </summary>
 struct Vertex
 {
 	DirectX::XMFLOAT3 Position;
