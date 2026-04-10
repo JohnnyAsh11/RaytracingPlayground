@@ -44,7 +44,11 @@ struct RayTracingEntityData
 	float Roughness = 1.0f;
 	// - -
 	float Metalness = 0.0f;
-	DirectX::XMFLOAT3 padding;
+	DirectX::XMFLOAT2 Scale;
+	float Brilliance = 1.0f;
+	// - -
+	DirectX::XMFLOAT2 Offset;
+	DirectX::XMFLOAT2 padding0;
 };
 
 struct BilateralFilterData

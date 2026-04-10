@@ -31,6 +31,7 @@ private:
 
 	float m_fRoughness;
 	float m_fMetallic;
+	float m_fBrilliance = 1.0f;
 
 public:
 	/// <summary>
@@ -43,16 +44,20 @@ public:
 		DirectX::XMFLOAT2 a_v2UVScale,
 		DirectX::XMFLOAT2 a_v2UVOffset,
 		float a_fRoughness = 1.0f,
-		float a_fMetallic = 0.0f);
+		float a_fMetallic = 0.0f,
+		float a_fBrilliance = 1.0f);
 
 	Microsoft::WRL::ComPtr<ID3D12PipelineState> GetPipelineState();
 	TextureSet& GetTextureSet();
 	DirectX::XMFLOAT3& GetColorTint();
 	DirectX::XMFLOAT2& GetUVScale();
 	DirectX::XMFLOAT2& GetUVOffset();
-
+	
+	float GetBrilliance();
 	float GetRoughness();
 	float GetMetalness();
+
+	void SetBrilliance(float a_fBrilliance);
 };
 
 #endif //__MATERIAL_H_

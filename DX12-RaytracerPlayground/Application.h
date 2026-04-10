@@ -18,11 +18,15 @@ private:
 	D3D12_RECT scissorRect{};
 
 	unsigned int m_uCubemapIndex;
+	std::vector<std::shared_ptr<Material>> m_lMaterials;
 	std::vector<std::shared_ptr<Entity>> m_lEntities;
+
 	std::shared_ptr<Entity> m_pTorus;
-	std::shared_ptr<Entity> m_pLavaSphere;
 	std::shared_ptr<Entity> m_pFloor;
 	std::shared_ptr<Camera> m_pCamera;
+
+	// Saving a ptr to this material for controls purposes.
+	std::shared_ptr<Material> m_pLavaMaterial;
 
 public:
 	/// <summary>
@@ -53,6 +57,11 @@ public:
 	/// Resizes the application on window resizing.
 	/// </summary>
 	void OnResize();
+
+	/// <summary>
+	/// Builds the UI for the program.
+	/// </summary>
+	void BuildUI(float a_fDeltaTime);
 };
 
 #endif // __APPLICATION_H_

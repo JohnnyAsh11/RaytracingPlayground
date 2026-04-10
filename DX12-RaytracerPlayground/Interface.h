@@ -11,33 +11,9 @@
 
 namespace Interface
 {
-	/// <summary>
-	/// Sets the UI frame for the next render.
-	/// Function Pointer should be building the UI frame!
-	/// </summary>
-	inline void SetFrame(void(*a_pUiBuild)(), float a_fDeltaTime)
-	{
-		// Updating all of the frame to frame logic for ImGui:
-		// - Input
-		// - Window Size
-		// - Delta Time
-		ImGuiIO& io = ImGui::GetIO();
-		io.DeltaTime = a_fDeltaTime;
-		io.DisplaySize.x = (float)Window::GetWidth();	
-		io.DisplaySize.y = (float)Window::GetHeight();
-
-		ImGui_ImplDX12_NewFrame();
-		ImGui_ImplWin32_NewFrame();
-		ImGui::NewFrame();
-		Input::SetKeyboardCapture(io.WantCaptureKeyboard);
-		Input::SetMouseCapture(io.WantCaptureMouse);
-
-		// Building the UI in the new frame.
-		if (a_pUiBuild != nullptr)
-		{
-			a_pUiBuild();
-		}
-	}
+	// Controls
+	inline bool IsMoving = false;
+	inline bool RotateMirror = false;
 
 	/// <summary>
 	/// Initializes the ImGui ui framework.

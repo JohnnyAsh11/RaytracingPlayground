@@ -23,6 +23,7 @@ struct SceneData
     uint RaysPerPixel;
     uint RecursionDepth;
 };
+
 struct EntityData
 {
     float4 Color;
@@ -38,7 +39,11 @@ struct EntityData
     float Roughness;
 	
     float Metalness;
-    float3 padding;
+    float2 Scale;
+    float brilliance;
+	
+    float2 Offset;
+    float2 padding0;
 };
 
 cbuffer DrawData : register(b0)
@@ -214,14 +219,15 @@ void ClosestHit(inout RayPayload payload, BuiltInTriangleIntersectionAttributes 
 	// Grab the geometry and convert the normal to world space.
     Vertex currentVertex = InterpolateVertices(PrimitiveIndex(), hitAttributes.barycentrics);
     float3x3 objectToWorld = (float3x3) ObjectToWorld4x3();
+    float2 scale = thisEntity.Scale;
+    float2 offset = thisEntity.Offset;
     float3 normal = normalize(mul(currentVertex.normal, objectToWorld));
     float tangent = normalize(mul(currentVertex.tangent, objectToWorld));
 	
 	// Setting basic material values.
     float metalness = thisEntity.Metalness;
     float roughness = saturate(pow(thisEntity.Roughness, 2.0f));
-    float3 baseColor = thisEntity.Color.rgb;
-	
+    float3 baseColor = thisEntity.Color.rgb;	
 	
 	// Essentially translates to "If there is a texture".
     if (thisEntity.AlbedoIndex != -1)
@@ -231,10 +237,10 @@ void ClosestHit(inout RayPayload payload, BuiltInTriangleIntersectionAttributes 
         Texture2D Rough = ResourceDescriptorHeap[thisEntity.RoughnessIndex];
         Texture2D Metal = ResourceDescriptorHeap[thisEntity.MetalnessIndex];
 		
-        baseColor = pow(Albedo.SampleLevel(Sampler, currentVertex.uv, 0).rgb, 2.2f);
-        roughness = pow(Rough.SampleLevel(Sampler, currentVertex.uv, 0).r, 2);
-        metalness = Metal.SampleLevel(Sampler, currentVertex.uv, 0).r;
-        float3 normalMap = Normal.SampleLevel(Sampler, currentVertex.uv, 0).rgb * 2 - 1;
+        baseColor = pow(Albedo.SampleLevel(Sampler, currentVertex.uv * scale + offset, 0).rgb, 2.2f);
+        roughness = pow(Rough.SampleLevel(Sampler, currentVertex.uv * scale + offset, 0).r, 2);
+        metalness = Metal.SampleLevel(Sampler, currentVertex.uv * scale + offset, 0).r;
+        float3 normalMap = Normal.SampleLevel(Sampler, currentVertex.uv * scale + offset, 0).rgb * 2 - 1;
 		
         float3 N = normal;
         float3 T = normalize(tangent - N * dot(tangent, N));
@@ -271,9 +277,9 @@ void ClosestHit(inout RayPayload payload, BuiltInTriangleIntersectionAttributes 
     if (thisEntity.EmissiveIndex != -1)
     {
         Texture2D Emissive = ResourceDescriptorHeap[thisEntity.EmissiveIndex];
-        float3 emissiveColor = pow(Emissive.SampleLevel(Sampler, currentVertex.uv, 0.0f).rgb, 2.2f);
+        float3 emissiveColor = pow(Emissive.SampleLevel(Sampler, currentVertex.uv * scale + offset, 0.0f).rgb, 2.2f);
 		
-        payload.color += payload.color * emissiveColor * 40.0f;
+        payload.color += payload.color * emissiveColor * thisEntity.brilliance;
     }
 	
 	// Create the new recursive ray

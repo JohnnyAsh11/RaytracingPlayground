@@ -906,6 +906,9 @@ void RayTracing::CreateEntityDataBuffer(std::vector<std::shared_ptr<Entity>> sce
 		data.EmissiveIndex = textures.EmissisveIndex;
 		data.Roughness = mat->GetRoughness();
 		data.Metalness = mat->GetMetalness();
+		data.Scale = mat->GetUVScale();
+		data.Offset = mat->GetUVOffset();
+		data.Brilliance = mat->GetBrilliance();
 
 		entityData.push_back(data);
 	}

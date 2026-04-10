@@ -37,6 +37,11 @@ public:
 	/// Gets the Entity's material.
 	/// </summary>
 	std::shared_ptr<Material> GetMaterial();
+
+	/// <summary>
+	/// Sets the material for the Entity.
+	/// </summary>
+	void SetMaterial(std::shared_ptr<Material> a_pMaterial);
 };
 
 #endif //__ENTITY_H_
