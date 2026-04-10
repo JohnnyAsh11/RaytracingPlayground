@@ -903,6 +903,7 @@ void RayTracing::CreateEntityDataBuffer(std::vector<std::shared_ptr<Entity>> sce
 		data.NormalIndex = textures.NormalIndex;
 		data.RoughnessIndex = textures.RoughnessIndex;
 		data.MetallicIndex = textures.MetallicIndex;
+		data.EmissiveIndex = textures.EmissisveIndex;
 		data.Roughness = mat->GetRoughness();
 		data.Metalness = mat->GetMetalness();
 

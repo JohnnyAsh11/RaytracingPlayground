@@ -26,16 +26,19 @@ struct SceneData
 struct EntityData
 {
     float4 Color;
+	
     uint VertexBufferDescriptorIndex;
     uint IndexBufferDescriptorIndex;
-	
 	uint AlbedoIndex;
 	uint NormalIndex;
+	
 	uint RoughnessIndex;
     uint MetalnessIndex;
-	
+    uint EmissiveIndex;
     float Roughness;
+	
     float Metalness;
+    float3 padding;
 };
 
 cbuffer DrawData : register(b0)
@@ -219,6 +222,7 @@ void ClosestHit(inout RayPayload payload, BuiltInTriangleIntersectionAttributes 
     float roughness = saturate(pow(thisEntity.Roughness, 2.0f));
     float3 baseColor = thisEntity.Color.rgb;
 	
+	
 	// Essentially translates to "If there is a texture".
     if (thisEntity.AlbedoIndex != -1)
     {
@@ -262,7 +266,15 @@ void ClosestHit(inout RayPayload payload, BuiltInTriangleIntersectionAttributes 
     float3 roughnessBounceColor = lerp(float3(1, 1, 1), baseColor, roughness); // Dir is roughness-based, so color is too
     float3 diffuseColor = lerp(baseColor, roughnessBounceColor, fres > rng.x); // Diffuse "reflection" chance
     float3 finalColor = lerp(diffuseColor, baseColor, metalness); // Metal always tints
+		
     payload.color *= finalColor;
+    if (thisEntity.EmissiveIndex != -1)
+    {
+        Texture2D Emissive = ResourceDescriptorHeap[thisEntity.EmissiveIndex];
+        float3 emissiveColor = pow(Emissive.SampleLevel(Sampler, currentVertex.uv, 0.0f).rgb, 2.2f);
+		
+        payload.color += payload.color * emissiveColor * 40.0f;
+    }
 	
 	// Create the new recursive ray
     RayDesc ray;
@@ -280,33 +292,4 @@ void ClosestHit(inout RayPayload payload, BuiltInTriangleIntersectionAttributes 
 		0xFF, 0, 0, 0, // Mask and offsets
 		ray,
 		payload);
-	
- //   float2 pixelUV = (float2) DispatchRaysIndex().xy / DispatchRaysDimensions().xy;
- //   float2 rng = rand2(
-	//	pixelUV * (payload.RecursionDepth + 1) + 
-	//	payload.RayPerPixelIndex + 
-	//	RayTCurrent());
-	
-	//// Interpolate between perfect reflection and random bounce based on roughness
- //   float3 reflection = reflect(WorldRayDirection(), normal);
- //   float3 randomBounce = RandomCosineWeightedHemisphere(rand(rng), rand(rng.yx), normal);
- //   float3 direction = normalize(lerp(reflection, randomBounce, roughness));
-		
-	//// Create the new recursive ray
- //   RayDesc rayDesc;
- //   rayDesc.Origin = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
- //   rayDesc.Direction = direction;
- //   rayDesc.TMin = 0.0001f;
- //   rayDesc.TMax = 1000.0f;
-	
-	//// Recursive ray trace
- //   payload.RecursionDepth++;
-	
- //   RaytracingAccelerationStructure TLAS = ResourceDescriptorHeap[SceneTLASDescriptorIndex];
- //   TraceRay(
-	//	TLAS,
-	//	RAY_FLAG_NONE,
-	//	0xFF, 0, 0, 0, // Mask and offsets
-	//	rayDesc,
-	//	payload);
 }

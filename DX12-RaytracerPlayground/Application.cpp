@@ -47,11 +47,25 @@ Application::Application()
 	cobblestone.NormalIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/scratched_normals.png").c_str());
 	cobblestone.MetallicIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/scratched_metal.png").c_str());
 	cobblestone.RoughnessIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/scratched_roughness.png").c_str());
+
+	TextureSet lavaTexture{};
+	lavaTexture.AlbedoIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/lava_albedo.png").c_str());
+	lavaTexture.NormalIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/lava_normals.png").c_str());
+	lavaTexture.RoughnessIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/lava_roughness.png").c_str());
+	lavaTexture.EmissisveIndex = Graphics::LoadTexture(FromExeDir(L"../../../Textures/lava_emissive.png").c_str());
 	
 	// Creating a material with the PBR texture.
 	std::shared_ptr<Material> pCobblestoneMat = std::make_shared<Material>(
 		emptyPso,
 		cobblestone,
+		XMFLOAT3(1.0f, 1.0f, 1.0f),
+		XMFLOAT2(1.0f, 1.0f),
+		XMFLOAT2(0.0f, 0.0f),
+		1.0f,
+		0.0f);
+	std::shared_ptr<Material> pLavaMat = std::make_shared<Material>(
+		emptyPso,
+		lavaTexture,
 		XMFLOAT3(1.0f, 1.0f, 1.0f),
 		XMFLOAT2(1.0f, 1.0f),
 		XMFLOAT2(0.0f, 0.0f),
@@ -82,11 +96,17 @@ Application::Application()
 	m_pFloor->GetTransform().MoveAbsolute(0.0f, -11.0f, 0.0f);
 	m_lEntities.push_back(m_pFloor);
 
-	// Setting up the floating Torus.
+	// Setting up the floating Torus and Emissive Sphere.
+	float scale = 1.5f;
 	m_pTorus = std::make_shared<Entity>(torus, pMirrorMat);
-	m_pTorus->GetTransform().Scale(2.0f, 2.0f, 2.0f);
-	m_pTorus->GetTransform().MoveAbsolute(0.0f, 4.0f, 0.0f);
+	m_pTorus->GetTransform().Scale(scale, scale, scale);
+	m_pTorus->GetTransform().MoveAbsolute(-2.0f, 4.0f, 0.0f);
 	m_lEntities.push_back(m_pTorus);
+
+	m_pLavaSphere = std::make_shared<Entity>(sphere, pLavaMat);
+	m_pLavaSphere->GetTransform().Scale(scale, scale, scale);
+	m_pLavaSphere->GetTransform().MoveAbsolute(2.0f, 4.0f, 0.0f);
+	m_lEntities.push_back(m_pLavaSphere);
 
 	const int MaxEntities = 15;
 	for (int i = 0; i < MaxEntities; i++)
@@ -154,7 +174,8 @@ void Application::Update(float a_fDeltaTime, float a_fTotalTime)
 	Interface::SetFrame(BuildImGui, a_fDeltaTime);
 
 	m_pTorus->GetTransform().Rotate(a_fDeltaTime, 0.0f, 0.0f);
-	for (int i = 2; i < m_lEntities.size(); i++)
+	m_pLavaSphere->GetTransform().Rotate(a_fDeltaTime, a_fDeltaTime, a_fDeltaTime);
+	for (int i = 3; i < m_lEntities.size(); i++)
 	{
 		XMFLOAT3 position = m_lEntities[i]->GetTransform().GetPosition();
 		XMFLOAT3 rotation = m_lEntities[i]->GetTransform().GetRotation();

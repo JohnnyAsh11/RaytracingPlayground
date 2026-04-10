@@ -20,6 +20,7 @@ private:
 	unsigned int m_uCubemapIndex;
 	std::vector<std::shared_ptr<Entity>> m_lEntities;
 	std::shared_ptr<Entity> m_pTorus;
+	std::shared_ptr<Entity> m_pLavaSphere;
 	std::shared_ptr<Entity> m_pFloor;
 	std::shared_ptr<Camera> m_pCamera;
 

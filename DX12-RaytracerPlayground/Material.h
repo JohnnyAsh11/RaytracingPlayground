@@ -10,10 +10,11 @@
 /// </summary>
 struct TextureSet
 {
-	unsigned int AlbedoIndex = (unsigned int) - 1;
-	unsigned int NormalIndex = (unsigned int) -1;
-	unsigned int MetallicIndex = (unsigned int) -1;
+	unsigned int AlbedoIndex    = (unsigned int) -1;
+	unsigned int NormalIndex    = (unsigned int) -1;
+	unsigned int MetallicIndex  = (unsigned int) -1;
 	unsigned int RoughnessIndex = (unsigned int) -1;
+	unsigned int EmissisveIndex = (unsigned int) -1;
 };
 
 /// <summary>

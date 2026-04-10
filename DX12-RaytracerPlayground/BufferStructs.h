@@ -40,8 +40,11 @@ struct RayTracingEntityData
 	// - -
 	unsigned int RoughnessIndex = (unsigned int)-1;
 	unsigned int MetallicIndex = (unsigned int)-1;
+	unsigned int EmissiveIndex = (unsigned int)-1;
 	float Roughness = 1.0f;
+	// - -
 	float Metalness = 0.0f;
+	DirectX::XMFLOAT3 padding;
 };
 
 struct BilateralFilterData
