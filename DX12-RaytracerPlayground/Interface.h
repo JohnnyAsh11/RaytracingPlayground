@@ -12,7 +12,8 @@
 namespace Interface
 {
 	// Controls
-	inline bool IsMoving = false;
+	inline bool IsMovingSin = false;
+	inline bool IsMovingTan = false;
 	inline bool RotateMirror = false;
 
 	/// <summary>

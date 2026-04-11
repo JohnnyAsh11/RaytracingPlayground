@@ -98,7 +98,7 @@ Application::Application()
 		XMFLOAT3(1.0f, 1.0f, 1.0f),
 		XMFLOAT2(1.0f, 1.0f),
 		XMFLOAT2(0.0f, 0.0f),
-		1.0f, 0.0f, 5.0f);
+		1.0f, 0.0f, 15.0f);
 	m_lMaterials.push_back(m_pLavaMaterial);
 
 	// Creating a material for the floor and mirror.
@@ -199,7 +199,7 @@ void Application::Update(float a_fDeltaTime, float a_fTotalTime)
 		m_pTorus->GetTransform().Rotate(a_fDeltaTime, 0.0f, 0.0f);
 	}
 
-	if (Interface::IsMoving)
+	if (Interface::IsMovingSin || Interface::IsMovingTan)
 	{
 		for (int i = 2; i < m_lEntities.size(); i++)
 		{
@@ -209,7 +209,16 @@ void Application::Update(float a_fDeltaTime, float a_fTotalTime)
 
 			float distance = 3.0f;
 			float speed = 0.5f;
-			position.z = (float)sin((a_fTotalTime / speed + i) / distance) * distance;
+
+			if (Interface::IsMovingSin)
+			{
+				position.z = (float)sin((a_fTotalTime / speed + i) / distance) * distance;
+			}
+			else if (Interface::IsMovingTan)
+			{
+				position.z = (float)tan((a_fTotalTime / speed + i) / distance) * distance;
+			}
+
 			rotation.x = position.z / (scale.x);
 
 			m_lEntities[i]->GetTransform().SetPosition(position);
@@ -287,14 +296,15 @@ void Application::BuildUI(float a_fDeltaTime)
 	ImGui::Text("Frame rate: %f fps", ImGui::GetIO().Framerate);
 	if (ImGui::TreeNode("General"))
 	{
-		ImGui::Checkbox("Create Sine Curve", &Interface::IsMoving);
+		ImGui::Checkbox("Create Sine Curve", &Interface::IsMovingSin);
+		ImGui::Checkbox("Create Tangent Curve", &Interface::IsMovingTan);
 		ImGui::Checkbox("Rotate Mirror", &Interface::RotateMirror);
 		ImGui::TreePop();
 	}
 	if (ImGui::TreeNode("Path Tracing"))
 	{
 		ImGui::DragInt("Recursion Depth", &RayTracing::RecursionDepth, 1, 1, 20);
-		ImGui::DragInt("Rays Per Pixel", &RayTracing::RaysPerPixel, 1, 1, 50);
+		ImGui::DragInt("Rays Per Pixel", &RayTracing::RaysPerPixel, 1, 1, 150);
 		ImGui::TreePop();
 	}
 	if (ImGui::TreeNode("Bilateral Filtering"))
@@ -303,14 +313,6 @@ void Application::BuildUI(float a_fDeltaTime)
 		ImGui::DragFloat("Sigma Spatial", &RayTracing::SigmaSpatial, 0.5f, 1.0f, 15.0f);
 		ImGui::DragFloat("Sigma Color", &RayTracing::SigmaColor, 0.1f, 0.1f, 5.0f);
 		ImGui::DragInt("Kernel Radius", &RayTracing::KernelRadius, 1, 1, 15);
-		ImGui::TreePop();
-	}
-	if (ImGui::TreeNode("Materials"))
-	{
-		float brilliance = m_pLavaMaterial->GetBrilliance();
-		ImGui::DragFloat("Emissive Brilliance", &brilliance, 0.5f, 1.0f, 100.0f);
-		m_pLavaMaterial->SetBrilliance(brilliance);
-
 		ImGui::TreePop();
 	}
 	ImGui::End();
